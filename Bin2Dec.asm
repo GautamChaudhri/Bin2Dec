@@ -1,11 +1,194 @@
 // This file is part of www.nand2tetris.org
 // and the book "The Elements of Computing Systems"
 // by Nisan and Schocken, MIT Press.
-// File name: projects/4/mult/bin2dec.asm
+// File name: Bin2Dec.asm
 
 // Performs a binary-to-decimal conversion using a combination of the functions already defined in Mult.asm, Pow.asm, and Div.asm in the same directory
 
 // TODO: ks_processBuf, ks_getKey
+// NOTES: 
+// * current condition checks check against 0 and 1 literally instead of their ASCII values. So getKey should convert
+//      characters 0-9 from their ASCII values to their literal values and store them in currKey
+//      non-numeric characters should remain as ASCII values
+// * Condition 2 and 3 need safety checks for when entered bits = 0. 
+// * Condition 1 should check for < 16 bits, not <= 16 bits as it says in the flowchart because if 
+//      there are already 16 bits and it continues, then we end up with overflow
+
+//************************* "MAIN" *****************************************
+(gc_RESTART)
+// set important variables to their initial values
+@ge_currentColumn   // track column to draw in
+M=0
+@gc_bitsEntered     // keeps track of number of bits entered, if-else structure depends on this
+M=0                 
+
+(gc_LOOP_START)
+// 0) get_key function call goes here
+@gc_currKey         // this should be the return value of get_key, the if-else structure depends on this
+M=1                 // just a test value for now until get_key is done
+
+
+// Now begin if else structure to decide what happens next
+
+// 1) If current key = 0 or 1 and <= 16 bits entered, then draw 0 or 1 and add to buffer
+@gc_currKey
+D=M
+@0_16BITCHECK
+D;JEQ               // if currKey = 0, then jump to 0-16 bit check
+D-1;JEQ             // else if currKey = 1, then also jump to 0-16 bit check
+@CONDITION2         // otherwise currKey is neither, jump to next condition check
+0;JMP
+
+(0_16BITCHECK)          // check if <= 16 bits entered
+@16
+D=A 
+@gc_bitsEntered
+D=M-D                   // bitsEntered - 16
+@gc_CONDITION1_MET
+D;JLE                   // if bitsEntered - 16 <= 0 is true, then do the next steps
+@gc_CONDITION2          
+0;JMP                   // otherwise its false and jump to next condition check
+
+(gc_CONDITION1_MET)     // now call gc_OUTPUT_01 and then addBuf
+@gc_CONDITION1_NEXT     // setup function call, this is return point
+D=A 
+@gc_OUTPUT_01_RETURN
+M=D 
+@gc_OUTPUT_01
+0;JMP
+
+(gc_CONDITION1_NEXT)
+//addBuf function call goes HERE
+@gc_LOOP_START          // after function call, restart loop to get the next key
+0;JMP
+
+
+
+// 2) If current key = backspace, then remove last input
+(gc_CONDITION2)
+@129                // ASCII value for backspace
+D=A 
+@gc_currKey
+D=M-D               // currKey value - backspace ASCII value 
+@gc_CONDITION2_MET
+D;JEQ               // if currKey is backspace, then do next steps
+@gc_CONDITION3      // otherwise it is not backspace so jump to next condition check
+0;JMP
+
+(gc_CONDITION2_MET)
+//delBuf function call goes here
+@gc_LOOP_START          // after function call, restart loop to get the next key
+0;JMP
+
+
+
+// 3) If current key = c, then clear whole buffer
+(gc_CONDITION3)
+@99                 // ASCII value for c
+D=A 
+@gc_currKey
+D=M-D               // currKey value - c ASCII value 
+@gc_CONDITION3_MET
+D;JEQ               // if currKey is c, then do next steps
+@gc_CONDITION4      // otherwise it is not c so jump to next condition check
+0;JMP
+
+(gc_CONDITION3_MET)
+//clearBuf function call goes here
+@gc_LOOP_START          // after function call, restart loop to get the next key
+0;JMP
+
+
+
+// 4) If current key = c, then clear whole buffer AND terminate program
+(gc_CONDITION4)
+@113                // ASCII value for q
+D=A 
+@gc_currKey
+D=M-D               // currKey value - q ASCII value 
+@gc_CONDITION4_MET
+D;JEQ               // if currKey is q, then do next steps
+@gc_CONDITION5      // otherwise it is not q so jump to next condition check
+0;JMP
+
+(gc_CONDITION4_MET)
+//clearBuf function call goes here
+@END                // terminate program
+0;JMP
+
+
+
+// 5) If current key = enter AND exactly 16 bits entered, then process buffer
+(gc_CONDITION5)
+@128                // ASCII value for enter
+D=A 
+@gc_currKey
+D=M-D               // currKey value - enter ASCII value 
+@16BITCHECK
+D;JEQ               // if currKey is enter, then jump to 16 bit check
+@gc_LOOP_START      // otherwise it is not enter so restart loop
+0;JMP
+
+(16BITCHECK)
+@16
+D=A 
+@gc_bitsEntered
+D=M-D                   // bitsEntered - 16
+@gc_CONDITION5_MET
+D;JEQ                   // if bitsEntered - 16 = 0 is true, then do the next steps
+@gc_LOOP_START          
+0;JMP                   // otherwise its false so restart loop
+
+(gc_CONDITION5_MET)
+// processBuf and steps after that go here
+
+
+(END)
+@END
+0;JMP
+
+//************************* "END MAIN" *************************************
+
+// Outputs 0 or 1 to the display followed by a blank space, updates current column accordingly
+(gc_OUTPUT_01)         
+@gc_currKey             // get current key and see if it is a 0 or 1
+D=M
+@DRAW0
+D;JEQ                   // if key = 0, jump to correct location to draw 0
+
+// DRAW1
+@gc_ADDSPACE            // otherwise, key = 1 so draw 1
+D=A
+@ge_output_return       // set return address
+M=D
+@ge_output_1            // draw 1 on screen
+0;JMP
+
+(DRAW0)
+@gc_ADDSPACE            // set return address
+D=A
+@ge_output_return
+M=D
+@ge_output_0            // draw 0 on screen
+0;JMP
+
+(gc_ADDSPACE)           // draw space after drawing character
+@ge_currentColumn       // increment current bit index
+M=M+1
+@gc_NEXT                // set return address
+D=A
+@ge_output_return
+M=D
+@ge_output_s
+0;JMP
+
+(gc_NEXT)
+@ge_currentColumn       // increment current bit index
+M=M+1
+@gc_OUTPUT_01_RETURN    // jump back to function call
+A=M
+0;JMP
+
 
 // Mult function
 // Multiplies R0 and R1 and stores the result in R2.
