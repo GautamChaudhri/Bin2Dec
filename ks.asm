@@ -1,0 +1,1203 @@
+// This file is part of www.nand2tetris.org
+// and the book "The Elements of Computing Systems"
+// by Nisan and Schocken, MIT Press.
+// File name: projects/4/mult/bin2dec.asm
+
+// Performs a binary-to-decimal conversion using a combination of the functions already defined in Mult.asm, Pow.asm, and Div.asm in the same directory
+
+// TODO: ks_processBuf, ks_getKey
+
+// Mult function
+// Multiplies R0 and R1 and stores the result in R2.
+// (R0, R1, R2 refer to RAM[0], RAM[1], and RAM[2], respectively.)
+// The algorithm handles positive and negative operands.
+(Mult)
+    @R2
+    M=0
+    @R0
+    D=M
+    @mul_tmp_X
+    M=D
+    @R1
+    D=M
+    @mul_tmp_Y
+    M=D
+    @mul_tmp_Y
+    D=M
+    @Mult_endLoop
+    D;JEQ
+    @mul_tmp_Y
+    D=M
+    @Mult_isNegativeMultiplier
+    D;JLT
+    (Mult_isPositiveMultiplier)
+        @mul_tmp_X
+        D=M
+        @R2
+        M=D+M
+        @mul_tmp_Y
+        M=M-1
+        D=M
+        @Mult_isPositiveMultiplier
+        D;JGT
+        @Mult_endLoop
+        0;JMP
+    (Mult_isNegativeMultiplier)
+        @mul_tmp_X
+        D=-M
+        @mul_tmp_X
+        M=D
+        @mul_tmp_Y
+        M=-M
+        @Mult_isPositiveMultiplier
+        0;JMP
+    (Mult_endLoop)
+        @R14
+        A=M
+        0;JMP
+
+// Pow function
+// Uses Mult to compute R5 = R3 ^ R4 (R3 = base, R4 = exponent, R5 = result).
+// R8 is used as the exponent counter. R5 is initialized to 1 and repeatedly
+// multiplied by R3 using the Mult routine R4 times.
+(Pow)
+    @R5
+    M=1
+    @R4
+    D=M
+    @R8
+    M=D
+    (Pow_startLoop)
+        @R8
+        D=M
+        @Pow_endPower
+        D;JEQ
+        @R5
+        D=M
+        @R0
+        M=D
+        @R3
+        D=M
+        @R1
+        M=D
+        @Mult
+        @Pow_mulRet
+        0;JMP
+    (Pow_mulRet)
+        @R2
+        D=M
+        @R5
+        M=D
+        @R8
+        M=M-1
+        @Pow_startLoop
+        0;JMP
+    (Pow_endPower)
+        @R14
+        A=M
+        0;JMP
+
+// Div function
+// Performs integer (Euclidean) division: R0 / R1 = R2  (R0,R1,R2 refer to RAM[0],RAM[1],RAM[2])
+// The remainder is stored in R3.
+// Usage: Before executing, put the dividend in R0 and the divisor in R1.
+(Div)
+    @R0
+    D=M
+    @R1
+    A=M
+    D=A
+    @Div_sigfpe
+    D;JEQ
+    @R0
+    D=M
+    @Div_posDividend
+    D;JGE
+    @Div_negDividend
+    0;JMP
+    (Div_posDividend)
+        @R5
+        M=0
+        @R1
+        D=M
+        @Div_posDivisor
+        D;JGE
+        @Div_negDivisor
+        0;JMP
+    (Div_negDividend)
+        @R5
+        M=1
+        @R1
+        D=M
+        @Div_posDivisor
+        D;JGE
+        @Div_negDivisor
+        0;JMP
+    (Div_posDivisor)
+        @R1
+        D=M
+        @R4
+        M=D
+        @R6
+        M=0
+        @Div_runAlgorithm
+        0;JMP
+    (Div_runAlgorithm)
+        @R5
+        D=M
+        @Div_runAlgorithm_posdiv
+        D;JEQ
+        @R0
+        D=M
+        D=-D
+        @R3
+        M=D
+        @Div_runAlgorithm_after
+        0;JMP
+    (Div_runAlgorithm_posdiv)
+        @R0
+        D=M
+        @R3
+        M=D
+    (Div_runAlgorithm_after)
+        @R2
+        M=0
+    (Div_algo1)
+        @R3
+        D=M
+        @R4
+        D=D-M
+        @Div_endAlgo1
+        D;JLT
+        @R3
+        M=D
+        @R2
+        D=M
+        D=D+1
+        @R2
+        M=D
+        @Div_algo1
+        0;JMP
+    (Div_negDivisor)
+        @R1
+        D=M
+        D=-D
+        @R4
+        M=D
+        @R6
+        M=1
+        @Div_runAlgorithm
+        0;JMP
+    (Div_sigfpe)
+        @R2
+        M=0
+        @R0
+        D=M
+        @Div_sigfpe_nonzero_dividend
+        D;JNE
+        @R3
+        M=-1
+        @R3
+        M=M-1
+        @Div_halt
+        0;JMP
+    (Div_endAlgo1)
+        @R5
+        D=M
+        @Div_dividend_nonneg
+        D;JEQ
+        @R6
+        D=M
+        @Div_both_negative
+        D;JNE
+        @R3
+        D=M
+        @Div_div_neg_divpos_rem_zero
+        D;JEQ
+        @R2
+        D=M
+        D=-D
+        D=D-1
+        @R2
+        M=D
+        @R4
+        D=M
+        @R3
+        D=D-M
+        @R3
+        M=D
+        @Div_halt
+        0;JMP
+    (Div_div_neg_divpos_rem_zero)
+        @R2
+        D=M
+        D=-D
+        @R2
+        M=D
+        @Div_halt
+        0;JMP
+    (Div_both_negative)
+        @R3
+        D=M
+        @Div_both_neg_rem_zero
+        D;JEQ
+        @R2
+        D=M
+        D=D+1
+        @R2
+        M=D
+        @R4
+        D=M
+        @R3
+        D=D-M
+        @R3
+        M=D
+        @Div_halt
+        0;JMP
+    (Div_both_neg_rem_zero)
+        @Div_halt
+        0;JMP
+    (Div_dividend_nonneg)
+        @R6
+        D=M
+        @Div_div_pos_divneg
+        D;JNE
+        @Div_halt
+        0;JMP
+    (Div_div_pos_divneg)
+        @R2
+        D=M
+        D=-D
+        @R2
+        M=D
+        @Div_halt
+        0;JMP
+    (Div_sigfpe_nonzero_dividend)
+        @R3
+        M=-1
+        @Div_halt
+        0;JMP
+    (Div_halt)
+        @R14
+        A=M
+        0;JMP
+
+// ge_continue_output
+// this helper function ge_continue_output outputs the character defined by
+// frontRow1 through initialized below it in the functions ge_output_X
+(ge_continue_output)
+//
+// ***constants***
+//
+// ge_rowOffset - number of words to move to the next row of pixels
+@32
+D=A
+@ge_rowOffset
+M=D
+// end of constants
+//
+
+//
+// ***key variables***
+//
+
+// ge_currentRow - variable holding the display memory address to be written,
+//                 which starts at the fourth row of pixels (SCREEN + 3 x rowOffset) 
+//                 offset by the current column and
+//                 increments row by row to draw the character
+//               - initialized to the beginning of the fourth row in screen memory
+//                 plus the current column
+@SCREEN
+D=A
+@ge_rowOffset
+// offset to the fourth row
+D=D+M
+D=D+M
+D=D+M
+// add the current column
+@ge_currentColumn
+D=D+M
+@ge_currentRow
+M=D
+//
+
+
+// write the first row of pixels
+// load pattern in D via A
+@ge_fontRow1
+D=M
+// write pattern at currentLine
+@ge_currentRow
+A=M
+M=D
+//
+
+// update current line
+@ge_rowOffset
+D=M
+@ge_currentRow
+M=D+M
+// load pattern in D via A
+@ge_fontRow2
+D=M
+// write pattern at currentLine
+@ge_currentRow
+A=M
+M=D
+//
+
+
+// update current line
+@ge_rowOffset
+D=M
+@ge_currentRow
+M=D+M
+// load pattern in D via A
+@ge_fontRow3
+D=M
+// write pattern at currentLine
+@ge_currentRow
+A=M
+M=D
+//
+
+
+// update current line
+@ge_rowOffset
+D=M
+@ge_currentRow
+M=D+M
+// load pattern in D via A
+@ge_fontRow4
+D=M
+// write pattern at currentLine
+@ge_currentRow
+A=M
+M=D
+//
+
+
+// update current line
+@ge_rowOffset
+D=M
+@ge_currentRow
+M=D+M
+// load pattern in D via A
+@ge_fontRow5
+D=M
+// write pattern at currentLine
+@ge_currentRow
+A=M
+M=D
+//
+
+
+// update current line
+@ge_rowOffset
+D=M
+@ge_currentRow
+M=D+M
+// load pattern in D via A
+@ge_fontRow6
+D=M
+// write pattern at currentLine
+@ge_currentRow
+A=M
+M=D
+//
+
+
+// update current line
+@ge_rowOffset
+D=M
+@ge_currentRow
+M=D+M
+// load pattern in D via A
+@ge_fontRow7
+D=M
+// write pattern at currentLine
+@ge_currentRow
+A=M
+M=D
+//
+
+
+// update current line
+@ge_rowOffset
+D=M
+@ge_currentRow
+M=D+M
+// load pattern in D via A
+@ge_fontRow8
+D=M
+// write pattern at currentLine
+@ge_currentRow
+A=M
+M=D
+//
+
+
+// update current line
+@ge_rowOffset
+D=M
+@ge_currentRow
+M=D+M
+// load pattern in D via A
+@ge_fontRow9
+D=M
+// write pattern at currentLine
+@ge_currentRow
+A=M
+M=D
+//
+
+
+
+// return from function
+@ge_output_return
+A=M
+0;JMP
+
+
+
+//
+// individual function ge_output_X definitions which are 
+// just font definitions for the helper function above
+//
+
+//ge_output_0
+(ge_output_0)
+//do Output.create(12,30,51,51,51,51,51,30,12); // 0
+
+@12
+D=A
+@ge_fontRow1
+M=D
+
+@30
+D=A
+@ge_fontRow2
+M=D
+
+@51
+D=A
+@ge_fontRow3
+M=D
+
+@51
+D=A
+@ge_fontRow4
+M=D
+
+@51
+D=A
+@ge_fontRow5
+M=D
+
+@51
+D=A
+@ge_fontRow6
+M=D
+
+@51
+D=A
+@ge_fontRow7
+M=D
+
+@30
+D=A
+@ge_fontRow8
+M=D
+
+@12
+D=A
+@ge_fontRow9
+M=D
+@ge_continue_output
+0;JMP
+// end ge_output_0
+
+//ge_output_1
+(ge_output_1)
+//do Output.create(12,14,15,12,12,12,12,12,63); // 1
+
+@12
+D=A
+@ge_fontRow1
+M=D
+
+@14
+D=A
+@ge_fontRow2
+M=D
+
+@15
+D=A
+@ge_fontRow3
+M=D
+
+@12
+D=A
+@ge_fontRow4
+M=D
+
+@12
+D=A
+@ge_fontRow5
+M=D
+
+@12
+D=A
+@ge_fontRow6
+M=D
+
+@12
+D=A
+@ge_fontRow7
+M=D
+
+@12
+D=A
+@ge_fontRow8
+M=D
+
+@63
+D=A
+@ge_fontRow9
+M=D
+@ge_continue_output
+0;JMP
+// end ge_output_1
+
+//ge_output_2
+(ge_output_2)
+//do Output.create(30,51,48,24,12,6,3,51,63);   // 2
+
+@30
+D=A
+@ge_fontRow1
+M=D
+
+@51
+D=A
+@ge_fontRow2
+M=D
+
+@48
+D=A
+@ge_fontRow3
+M=D
+
+@24
+D=A
+@ge_fontRow4
+M=D
+
+@12
+D=A
+@ge_fontRow5
+M=D
+
+@6
+D=A
+@ge_fontRow6
+M=D
+
+@3
+D=A
+@ge_fontRow7
+M=D
+
+@51
+D=A
+@ge_fontRow8
+M=D
+
+@63
+D=A
+@ge_fontRow9
+M=D
+@ge_continue_output
+0;JMP
+// end ge_output_2
+
+
+//ge_output_3
+(ge_output_3)
+//do Output.create(30,51,48,48,28,48,48,51,30); // 3
+
+@30
+D=A
+@ge_fontRow1
+M=D
+
+@51
+D=A
+@ge_fontRow2
+M=D
+
+@48
+D=A
+@ge_fontRow3
+M=D
+
+@48
+D=A
+@ge_fontRow4
+M=D
+
+@28
+D=A
+@ge_fontRow5
+M=D
+
+@48
+D=A
+@ge_fontRow6
+M=D
+
+@48
+D=A
+@ge_fontRow7
+M=D
+
+@51
+D=A
+@ge_fontRow8
+M=D
+
+@30
+D=A
+@ge_fontRow9
+M=D
+@ge_continue_output
+0;JMP
+// end ge_output_3
+
+//ge_output_4
+(ge_output_4)
+//do Output.create(16,24,28,26,25,63,24,24,60); // 4
+
+@16
+D=A
+@ge_fontRow1
+M=D
+
+@24
+D=A
+@ge_fontRow2
+M=D
+
+@28
+D=A
+@ge_fontRow3
+M=D
+
+@26
+D=A
+@ge_fontRow4
+M=D
+
+@25
+D=A
+@ge_fontRow5
+M=D
+
+@63
+D=A
+@ge_fontRow6
+M=D
+
+@24
+D=A
+@ge_fontRow7
+M=D
+
+@24
+D=A
+@ge_fontRow8
+M=D
+
+@60
+D=A
+@ge_fontRow9
+M=D
+@ge_continue_output
+0;JMP
+// end ge_output_4
+
+//ge_output_5
+(ge_output_5)
+//do Output.create(63,3,3,31,48,48,48,51,30);   // 5
+
+@63
+D=A
+@ge_fontRow1
+M=D
+
+@3
+D=A
+@ge_fontRow2
+M=D
+
+@3
+D=A
+@ge_fontRow3
+M=D
+
+@31
+D=A
+@ge_fontRow4
+M=D
+
+@48
+D=A
+@ge_fontRow5
+M=D
+
+@48
+D=A
+@ge_fontRow6
+M=D
+
+@48
+D=A
+@ge_fontRow7
+M=D
+
+@51
+D=A
+@ge_fontRow8
+M=D
+
+@30
+D=A
+@ge_fontRow9
+M=D
+@ge_continue_output
+0;JMP
+// end ge_output_5
+
+//ge_output_6
+(ge_output_6)
+//do Output.create(28,6,3,3,31,51,51,51,30);    // 6
+
+@28
+D=A
+@ge_fontRow1
+M=D
+
+@6
+D=A
+@ge_fontRow2
+M=D
+
+@3
+D=A
+@ge_fontRow3
+M=D
+
+@3
+D=A
+@ge_fontRow4
+M=D
+
+@31
+D=A
+@ge_fontRow5
+M=D
+
+@51
+D=A
+@ge_fontRow6
+M=D
+
+@51
+D=A
+@ge_fontRow7
+M=D
+
+@51
+D=A
+@ge_fontRow8
+M=D
+
+@30
+D=A
+@ge_fontRow9
+M=D
+@ge_continue_output
+0;JMP
+// end ge_output_6
+
+//ge_output_7
+(ge_output_7)
+//do Output.create(63,49,48,48,24,12,12,12,12); // 7
+
+@63
+D=A
+@ge_fontRow1
+M=D
+
+@49
+D=A
+@ge_fontRow2
+M=D
+
+@48
+D=A
+@ge_fontRow3
+M=D
+
+@48
+D=A
+@ge_fontRow4
+M=D
+
+@24
+D=A
+@ge_fontRow5
+M=D
+
+@12
+D=A
+@ge_fontRow6
+M=D
+
+@12
+D=A
+@ge_fontRow7
+M=D
+
+@12
+D=A
+@ge_fontRow8
+M=D
+
+@12
+D=A
+@ge_fontRow9
+M=D
+@ge_continue_output
+0;JMP
+// end ge_output_7
+
+
+//ge_output_8
+(ge_output_8)
+//do Output.create(30,51,51,51,30,51,51,51,30); // 8
+
+@30
+D=A
+@ge_fontRow1
+M=D
+
+@51
+D=A
+@ge_fontRow2
+M=D
+
+@51
+D=A
+@ge_fontRow3
+M=D
+
+@51
+D=A
+@ge_fontRow4
+M=D
+
+@30
+D=A
+@ge_fontRow5
+M=D
+
+@51
+D=A
+@ge_fontRow6
+M=D
+
+@51
+D=A
+@ge_fontRow7
+M=D
+
+@51
+D=A
+@ge_fontRow8
+M=D
+
+@30
+D=A
+@ge_fontRow9
+M=D
+@ge_continue_output
+0;JMP
+// end ge_output_8
+
+
+
+//ge_output_9
+(ge_output_9)
+//do Output.create(30,51,51,51,62,48,48,24,14); // 9
+
+@30
+D=A
+@ge_fontRow1
+M=D
+
+@51
+D=A
+@ge_fontRow2
+M=D
+
+@51
+D=A
+@ge_fontRow3
+M=D
+
+@51
+D=A
+@ge_fontRow4
+M=D
+
+@62
+D=A
+@ge_fontRow5
+M=D
+
+@48
+D=A
+@ge_fontRow6
+M=D
+
+@48
+D=A
+@ge_fontRow7
+M=D
+
+@25
+D=A
+@ge_fontRow8
+M=D
+
+@14
+D=A
+@ge_fontRow9
+M=D
+@ge_continue_output
+0;JMP
+// end ge_output_9
+
+
+//ge_output_s
+(ge_output_s)
+//do Output.create(0,0,0,0,0,0,0,0,0); // space
+
+@0
+D=A
+@ge_fontRow1
+M=D
+
+@0
+D=A
+@ge_fontRow2
+M=D
+
+@0
+D=A
+@ge_fontRow3
+M=D
+
+@0
+D=A
+@ge_fontRow4
+M=D
+
+@0 // temporarily change to 255 so you can see it
+D=A
+@ge_fontRow5
+M=D
+
+@0
+D=A
+@ge_fontRow6
+M=D
+
+@0
+D=A
+@ge_fontRow7
+M=D
+
+@0
+D=A
+@ge_fontRow8
+M=D
+
+@0
+D=A
+@ge_fontRow9
+M=D
+@ge_continue_output
+0;JMP
+// end ge_output_s
+
+
+
+//ge_output_-
+(ge_output_-)
+//do Output.create(0,0,0,0,0,63,0,0,0);         // -
+
+@0
+D=A
+@ge_fontRow1
+M=D
+
+@0
+D=A
+@ge_fontRow2
+M=D
+
+@0
+D=A
+@ge_fontRow3
+M=D
+
+@0
+D=A
+@ge_fontRow4
+M=D
+
+@0
+D=A
+@ge_fontRow5
+M=D
+
+@63 // use 16128 to have minus to the right of the word
+D=A
+@ge_fontRow6
+M=D
+
+@0
+D=A
+@ge_fontRow7
+M=D
+
+@0
+D=A
+@ge_fontRow8
+M=D
+
+@0
+D=A
+@ge_fontRow9
+M=D
+@ge_continue_output
+0;JMP
+// end ge_output_-
+
+
+//ge_output_g
+(ge_output_g)
+//do Output.create(0,0,3,6,12,24,12,6,3);       // >
+
+@0
+D=A
+@ge_fontRow1
+M=D
+
+@0
+D=A
+@ge_fontRow2
+M=D
+
+@3
+D=A
+@ge_fontRow3
+M=D
+
+@6
+D=A
+@ge_fontRow4
+M=D
+
+@12
+D=A
+@ge_fontRow5
+M=D
+
+@24
+D=A
+@ge_fontRow6
+M=D
+
+@12
+D=A
+@ge_fontRow7
+M=D
+
+@6
+D=A
+@ge_fontRow8
+M=D
+
+@3
+D=A
+@ge_fontRow9
+M=D
+@ge_continue_output
+0;JMP
+// end ge_output_g
+
+
+//ge_output_+
+(ge_output_+)
+//do Output.create(0,0,0,12,12,63,12,12,0);     // +
+
+@0
+D=A
+@ge_fontRow1
+M=D
+
+@0
+D=A
+@ge_fontRow2
+M=D
+
+@0
+D=A
+@ge_fontRow3
+M=D
+
+@12
+D=A
+@ge_fontRow4
+M=D
+
+@12
+D=A
+@ge_fontRow5
+M=D
+
+@63
+D=A
+@ge_fontRow6
+M=D
+
+@12
+D=A
+@ge_fontRow7
+M=D
+
+@12
+D=A
+@ge_fontRow8
+M=D
+
+@0
+D=A
+@ge_fontRow9
+M=D
+@ge_continue_output
+0;JMP
+// end ge_output_+
