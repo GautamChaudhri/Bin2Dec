@@ -10,9 +10,9 @@
 // * current condition checks check against 0 and 1 literally instead of their ASCII values. So getKey should convert
 //      characters 0-9 from their ASCII values to their literal values and store them in currKey
 //      non-numeric characters should remain as ASCII values
-// * Condition 2 and 3 need safety checks for when entered bits = 0. 
+// * Condition 2 and 3 need safety checks for when entered bits = 0. | *DONE*
 // * Condition 1 should check for < 16 bits, not <= 16 bits as it says in the flowchart because if 
-//      there are already 16 bits and it continues, then we end up with overflow
+//      there are already 16 bits and it continues, then we end up with overflow | *DONE*
 
 //************************* "MAIN" *****************************************
 (gc_RESTART)
@@ -30,22 +30,22 @@ M=1                 // just a test value for now until get_key is done
 
 // Now begin if else structure to decide what happens next
 
-// 1) If current key = 0 or 1 and <= 16 bits entered, then draw 0 or 1 and add to buffer
+// 1) If current key = 0 or 1 and < 16 bits entered, then draw 0 or 1 and add to buffer
 @gc_currKey
 D=M
-@0_16BITCHECK
+@0_16BIT_CHECK
 D;JEQ               // if currKey = 0, then jump to 0-16 bit check
 D-1;JEQ             // else if currKey = 1, then also jump to 0-16 bit check
 @CONDITION2         // otherwise currKey is neither, jump to next condition check
 0;JMP
 
-(0_16BITCHECK)          // check if <= 16 bits entered
+(0_16BIT_CHECK)          // check if < 16 bits entered
 @16
 D=A 
 @gc_bitsEntered
 D=M-D                   // bitsEntered - 16
 @gc_CONDITION1_MET
-D;JLE                   // if bitsEntered - 16 <= 0 is true, then do the next steps
+D;JLT                   // if bitsEntered - 16 < 0 is true, then do the next steps
 @gc_CONDITION2          
 0;JMP                   // otherwise its false and jump to next condition check
 
@@ -66,12 +66,22 @@ M=D
 
 // 2) If current key = backspace, then remove last input
 (gc_CONDITION2)
+@gc_CONDITION2_MET              // if 0BIT_CHECK is false, then backspace is permitted
+D=A                             // so prepare jump to next steps on return from function call
+@gc_0BIT_CHECK_FALSE_RETURN     
+M=D 
+
+@gc_LOOP_START                  // if 0BIT_CHECK is true, then backspace is not permitted
+D=A                             // so jump back to loop start and wait for next key
+@gc_0BIT_CHECK_TRUE_RETURN
+M=D 
+
 @129                // ASCII value for backspace
 D=A 
 @gc_currKey
 D=M-D               // currKey value - backspace ASCII value 
-@gc_CONDITION2_MET
-D;JEQ               // if currKey is backspace, then do next steps
+@gc_0BIT_CHECK
+D;JEQ               // if currKey is backspace, then jump to 0BIT_CHECK and let the function handle where to jump back to
 @gc_CONDITION3      // otherwise it is not backspace so jump to next condition check
 0;JMP
 
@@ -84,34 +94,54 @@ D;JEQ               // if currKey is backspace, then do next steps
 
 // 3) If current key = c, then clear whole buffer
 (gc_CONDITION3)
+@gc_CONDITION3_CALL_CLEARBUF    // if 0BIT_CHECK is false, then clearbuf needs to be called
+D=A                             // so prepare jump to call it on return from function call
+@gc_0BIT_CHECK_FALSE_RETURN     
+M=D 
+
+@gc_LOOP_START                  // if 0BIT_CHECK is true, then buffer is already empty so 
+D=A                             // clearbuf doesnt need to be called, jump straight to loop start
+@gc_0BIT_CHECK_TRUE_RETURN
+M=D 
+
 @99                 // ASCII value for c
 D=A 
 @gc_currKey
 D=M-D               // currKey value - c ASCII value 
-@gc_CONDITION3_MET
-D;JEQ               // if currKey is c, then do next steps
+@gc_0BIT_CHECK
+D;JEQ               // if currKey is c, then jump to 0 bit check and let it handle where to jump control back to
 @gc_CONDITION4      // otherwise it is not c so jump to next condition check
 0;JMP
 
-(gc_CONDITION3_MET)
+(gc_CONDITION3_CALL_CLEARBUF)
 //clearBuf function call goes here
 @gc_LOOP_START          // after function call, restart loop to get the next key
 0;JMP
 
 
 
-// 4) If current key = c, then clear whole buffer AND terminate program
+// 4) If current key = q, then clear whole buffer AND terminate program
 (gc_CONDITION4)
+@gc_CONDITION4_CALL_CLEARBUF    // if 0BIT_CHECK is false, then clearbuf needs to be called
+D=A                             // so prepare jump to call it on return from function call
+@gc_0BIT_CHECK_FALSE_RETURN     
+M=D 
+
+@END                            // if 0BIT_CHECK is true, then buffer is already empty so 
+D=A                             // clearbuf doesnt need to be called, jump straight to terminate program
+@gc_0BIT_CHECK_TRUE_RETURN
+M=D 
+
 @113                // ASCII value for q
 D=A 
 @gc_currKey
 D=M-D               // currKey value - q ASCII value 
-@gc_CONDITION4_MET
+@gc_0BIT_CHECK
 D;JEQ               // if currKey is q, then do next steps
 @gc_CONDITION5      // otherwise it is not q so jump to next condition check
 0;JMP
 
-(gc_CONDITION4_MET)
+(gc_CONDITION4_CALL_CLEARBUF)
 //clearBuf function call goes here
 @END                // terminate program
 0;JMP
@@ -124,12 +154,12 @@ D;JEQ               // if currKey is q, then do next steps
 D=A 
 @gc_currKey
 D=M-D               // currKey value - enter ASCII value 
-@16BITCHECK
+@16BIT_CHECK
 D;JEQ               // if currKey is enter, then jump to 16 bit check
 @gc_LOOP_START      // otherwise it is not enter so restart loop
 0;JMP
 
-(16BITCHECK)
+(16BIT_CHECK)
 @16
 D=A 
 @gc_bitsEntered
@@ -149,6 +179,7 @@ D;JEQ                   // if bitsEntered - 16 = 0 is true, then do the next ste
 
 //************************* "END MAIN" *************************************
 
+// FUNCTION
 // Outputs 0 or 1 to the display followed by a blank space, updates current column accordingly
 (gc_OUTPUT_01)         
 @gc_currKey             // get current key and see if it is a 0 or 1
@@ -188,6 +219,27 @@ M=M+1
 @gc_OUTPUT_01_RETURN    // jump back to function call
 A=M
 0;JMP
+
+
+// FUNCTION
+// Checks gc_bitsEntered to see if it has 0 bits or not. 
+// If gc_bitsEntered = 0, then the function jumps back to the instruction contained in gc_0BIT_CHECK_TRUE_RETURN pointer
+// If gc_bitsEntered != 0, then the function jumps back to the instruction contained in gc_0BIT_CHECK_FALSE_RETURN pointer
+(gc_0BIT_CHECK)
+@gc_bitsEntered     
+D=M
+@gc_0BITS_ENTERED
+D;JEQ                               // if bits entered = 0, then jump and deal with it
+
+@gc_0BIT_CHECK_FALSE_RETURN         // otherwise bits entered != 0, so jump back to address 
+A=M                                 // located in gc_0BIT_CHECK_FALSE_RETURN
+0;JMP
+
+(gc_0BITS_ENTERED)                  // bits entered = 0, so jump back to address
+@gc_0BIT_CHECK_TRUE_RETURN          // located in gc_0BIT_CHECK_TRUE_RETURN
+A=M 
+0;JMP
+
 
 
 // Mult function
