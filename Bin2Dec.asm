@@ -6,13 +6,13 @@
 // Performs a binary-to-decimal conversion using a combination of the functions already defined in Mult.asm, Pow.asm, and Div.asm in the same directory
 
 // TODO: ks_processBuf, ks_getKey
-// NOTES: 
 // * current condition checks check against 0 and 1 literally instead of their ASCII values. So getKey should convert
 //      characters 0-9 from their ASCII values to their literal values and store them in currKey
 //      non-numeric characters should remain as ASCII values
-// * Condition 2 and 3 need safety checks for when entered bits = 0. | *DONE*
-// * Condition 1 should check for < 16 bits, not <= 16 bits as it says in the flowchart because if 
-//      there are already 16 bits and it continues, then we end up with overflow | *DONE*
+// *DONE* | Condition 2 and 3 need safety checks for when entered bits = 0
+// *DONE* | Condition 1 should check for < 16 bits, not <= 16 bits as it says in the flowchart because if 
+//      there are already 16 bits and it continues, then we end up with overflow
+// * Need default case at bottom of decision tree in main to return to getKey and restart loop
 
 //************************* "MAIN" *****************************************
 (gc_RESTART)
@@ -49,12 +49,12 @@ D;JLT                   // if bitsEntered - 16 < 0 is true, then do the next ste
 @gc_CONDITION2          
 0;JMP                   // otherwise its false and jump to next condition check
 
-(gc_CONDITION1_MET)     // now call gc_OUTPUT_01 and then addBuf
+(gc_CONDITION1_MET)     // now call gc_OUTPUT_09 and then addBuf
 @gc_CONDITION1_NEXT     // setup function call, this is return point
 D=A 
-@gc_OUTPUT_01_RETURN
+@gc_OUTPUT_09_RETURN
 M=D 
-@gc_OUTPUT_01
+@gc_OUTPUT_09
 0;JMP
 
 (gc_CONDITION1_NEXT)
@@ -64,7 +64,7 @@ M=D
 
 
 
-// 2) If current key = backspace, then remove last input
+// 2) If current key = backspace AND enteredBits > 0, then remove last input
 (gc_CONDITION2)
 @gc_CONDITION2_MET              // if 0BIT_CHECK is false, then backspace is permitted
 D=A                             // so prepare jump to next steps on return from function call
@@ -180,43 +180,131 @@ D;JEQ                   // if bitsEntered - 16 = 0 is true, then do the next ste
 //************************* "END MAIN" *************************************
 
 // FUNCTION
-// Outputs 0 or 1 to the display followed by a blank space, updates current column accordingly
-(gc_OUTPUT_01)         
-@gc_currKey             // get current key and see if it is a 0 or 1
-D=M
-@DRAW0
-D;JEQ                   // if key = 0, jump to correct location to draw 0
+// Outputs numbers 0-9 to the display using currKey, updates ge_current_column accordingly
+(gc_OUTPUT_09)         
+@gc_currKey                 
+D=M                     // D = currKey
+// Switch statement to find what digit 0-9 currKey is
+@gc_DRAW0
+D;JEQ                   // key = 0
+D=D-1
+@gc_DRAW1
+D;JEQ                   // key = 1
+D=D-1
+@gc_DRAW2
+D;JEQ                   // key = 2
+D=D-1
+@gc_DRAW3
+D;JEQ                   // key = 3
+D=D-1
+@gc_DRAW4
+D;JEQ                   // key = 4
+D=D-1
+@gc_DRAW5
+D;JEQ                   // key = 5
+D=D-1
+@gc_DRAW6
+D;JEQ                   // key = 6
+D=D-1
+@gc_DRAW7
+D;JEQ                   // key = 7
+D=D-1
+@gc_DRAW8
+D;JEQ                   // key = 8
+D=D-1
+@gc_DRAW9
+D;JEQ                   // key = 9
 
-// DRAW1
-@gc_ADDSPACE            // otherwise, key = 1 so draw 1
-D=A
-@ge_output_return       // set return address
-M=D
-@ge_output_1            // draw 1 on screen
+@gc_OUTPUT_09_RETURN    // default case, key is not 0-9
+A=M                     // so abort function
 0;JMP
 
-(DRAW0)
-@gc_ADDSPACE            // set return address
+// Draw corresponding digit on display
+(gc_DRAW0)                 // 0
+@gc_NEXT                // return point after ge_output function call
 D=A
 @ge_output_return
 M=D
 @ge_output_0            // draw 0 on screen
 0;JMP
 
-(gc_ADDSPACE)           // draw space after drawing character
-@ge_currentColumn       // increment current bit index
-M=M+1
-@gc_NEXT                // set return address
+(gc_DRAW1)                 // 1
+@gc_NEXT                // return point after ge_output function call
 D=A
 @ge_output_return
 M=D
-@ge_output_s
+@ge_output_1            // draw 1 on screen
 0;JMP
 
+(gc_DRAW2)                 // 2
+@gc_NEXT                // return point after ge_output function call
+D=A
+@ge_output_return
+M=D
+@ge_output_2            // draw 2 on screen
+0;JMP
+
+(gc_DRAW3)                 // 3
+@gc_NEXT                // return point after ge_output function call
+D=A
+@ge_output_return
+M=D
+@ge_output_3            // draw 3 on screen
+0;JMP
+
+(gc_DRAW4)                 // 4
+@gc_NEXT                // return point after ge_output function call
+D=A
+@ge_output_return
+M=D
+@ge_output_4            // draw 4 on screen
+0;JMP
+
+(gc_DRAW5)                 // 5
+@gc_NEXT                // return point after ge_output function call
+D=A
+@ge_output_return
+M=D
+@ge_output_5            // draw 5 on screen
+0;JMP
+
+(gc_DRAW6)                 // 6
+@gc_NEXT                // return point after ge_output function call
+D=A
+@ge_output_return
+M=D
+@ge_output_6            // draw 6 on screen
+0;JMP
+
+(gc_DRAW7)                 // 7
+@gc_NEXT                // return point after ge_output function call
+D=A
+@ge_output_return
+M=D
+@ge_output_7            // draw 7 on screen
+0;JMP
+
+(gc_DRAW8)                 // 8
+@gc_NEXT                // return point after ge_output function call
+D=A
+@ge_output_return
+M=D
+@ge_output_8            // draw 8 on screen
+0;JMP
+
+(gc_DRAW9)                 // 9
+@gc_NEXT                // return point after ge_output function call
+D=A
+@ge_output_return
+M=D
+@ge_output_9            // draw 9 on screen
+0;JMP
+
+// Jump back
 (gc_NEXT)
-@ge_currentColumn       // increment current bit index
+@ge_currentColumn       // increment current column index
 M=M+1
-@gc_OUTPUT_01_RETURN    // jump back to function call
+@gc_OUTPUT_09_RETURN    // jump back to function call
 A=M
 0;JMP
 
@@ -246,48 +334,48 @@ A=M
 // Multiplies R0 and R1 and stores the result in R2.
 // (R0, R1, R2 refer to RAM[0], RAM[1], and RAM[2], respectively.)
 // The algorithm handles positive and negative operands.
-(Mult)
+(ks_Mult)
     @R2
     M=0
     @R0
     D=M
-    @mul_tmp_X
+    @ks_mul_tmp_X
     M=D
     @R1
     D=M
-    @mul_tmp_Y
+    @ks_mul_tmp_Y
     M=D
-    @mul_tmp_Y
+    @ks_mul_tmp_Y
     D=M
-    @Mult_endLoop
+    @ks_Mult_endLoop
     D;JEQ
-    @mul_tmp_Y
+    @ks_mul_tmp_Y
     D=M
-    @Mult_isNegativeMultiplier
+    @ks_Mult_isNegativeMultiplier
     D;JLT
-    (Mult_isPositiveMultiplier)
-        @mul_tmp_X
+    (ks_Mult_isPositiveMultiplier)
+        @ks_mul_tmp_X
         D=M
         @R2
         M=D+M
-        @mul_tmp_Y
+        @ks_mul_tmp_Y
         M=M-1
         D=M
-        @Mult_isPositiveMultiplier
+        @ks_Mult_isPositiveMultiplier
         D;JGT
-        @Mult_endLoop
+        @ks_Mult_endLoop
         0;JMP
-    (Mult_isNegativeMultiplier)
-        @mul_tmp_X
+    (ks_Mult_isNegativeMultiplier)
+        @ks_mul_tmp_X
         D=-M
-        @mul_tmp_X
+        @ks_mul_tmp_X
         M=D
-        @mul_tmp_Y
+        @ks_mul_tmp_Y
         M=-M
-        @Mult_isPositiveMultiplier
+        @ks_Mult_isPositiveMultiplier
         0;JMP
-    (Mult_endLoop)
-        @R14
+    (ks_Mult_endLoop)
+        @ks_Mult_return
         A=M
         0;JMP
 
@@ -295,17 +383,17 @@ A=M
 // Uses Mult to compute R5 = R3 ^ R4 (R3 = base, R4 = exponent, R5 = result).
 // R8 is used as the exponent counter. R5 is initialized to 1 and repeatedly
 // multiplied by R3 using the Mult routine R4 times.
-(Pow)
+(ks_Pow)
     @R5
     M=1
     @R4
     D=M
     @R8
     M=D
-    (Pow_startLoop)
+    (ks_Pow_startLoop)
         @R8
         D=M
-        @Pow_endPower
+        @ks_Pow_endPower
         D;JEQ
         @R5
         D=M
@@ -315,20 +403,20 @@ A=M
         D=M
         @R1
         M=D
-        @Mult
-        @Pow_mulRet
+        @ks_Mult
+        @ks_Pow_mulRet
         0;JMP
-    (Pow_mulRet)
+    (ks_Pow_mulRet)
         @R2
         D=M
         @R5
         M=D
         @R8
         M=M-1
-        @Pow_startLoop
+        @ks_Pow_startLoop
         0;JMP
-    (Pow_endPower)
-        @R14
+    (ks_Pow_endPower)
+        @ks_Pow_return
         A=M
         0;JMP
 
@@ -336,73 +424,73 @@ A=M
 // Performs integer (Euclidean) division: R0 / R1 = R2  (R0,R1,R2 refer to RAM[0],RAM[1],RAM[2])
 // The remainder is stored in R3.
 // Usage: Before executing, put the dividend in R0 and the divisor in R1.
-(Div)
+(ks_Div)
     @R0
     D=M
     @R1
     A=M
     D=A
-    @Div_sigfpe
+    @ks_Div_sigfpe
     D;JEQ
     @R0
     D=M
-    @Div_posDividend
+    @ks_Div_posDividend
     D;JGE
-    @Div_negDividend
+    @ks_Div_negDividend
     0;JMP
-    (Div_posDividend)
+    (ks_Div_posDividend)
         @R5
         M=0
         @R1
         D=M
-        @Div_posDivisor
+        @ks_Div_posDivisor
         D;JGE
-        @Div_negDivisor
+        @ks_Div_negDivisor
         0;JMP
-    (Div_negDividend)
+    (ks_Div_negDividend)
         @R5
         M=1
         @R1
         D=M
-        @Div_posDivisor
+        @ks_Div_posDivisor
         D;JGE
-        @Div_negDivisor
+        @ks_Div_negDivisor
         0;JMP
-    (Div_posDivisor)
+    (ks_Div_posDivisor)
         @R1
         D=M
         @R4
         M=D
         @R6
         M=0
-        @Div_runAlgorithm
+        @ks_Div_runAlgorithm
         0;JMP
-    (Div_runAlgorithm)
+    (ks_Div_runAlgorithm)
         @R5
         D=M
-        @Div_runAlgorithm_posdiv
+        @ks_Div_runAlgorithm_posdiv
         D;JEQ
         @R0
         D=M
         D=-D
         @R3
         M=D
-        @Div_runAlgorithm_after
+        @ks_Div_runAlgorithm_after
         0;JMP
-    (Div_runAlgorithm_posdiv)
+    (ks_Div_runAlgorithm_posdiv)
         @R0
         D=M
         @R3
         M=D
-    (Div_runAlgorithm_after)
+    (ks_Div_runAlgorithm_after)
         @R2
         M=0
-    (Div_algo1)
+    (ks_Div_algo1)
         @R3
         D=M
         @R4
         D=D-M
-        @Div_endAlgo1
+        @ks_Div_endAlgo1
         D;JLT
         @R3
         M=D
@@ -411,9 +499,9 @@ A=M
         D=D+1
         @R2
         M=D
-        @Div_algo1
+        @ks_Div_algo1
         0;JMP
-    (Div_negDivisor)
+    (ks_Div_negDivisor)
         @R1
         D=M
         D=-D
@@ -421,33 +509,33 @@ A=M
         M=D
         @R6
         M=1
-        @Div_runAlgorithm
+        @ks_Div_runAlgorithm
         0;JMP
-    (Div_sigfpe)
+    (ks_Div_sigfpe)
         @R2
         M=0
         @R0
         D=M
-        @Div_sigfpe_nonzero_dividend
+        @ks_Div_sigfpe_nonzero_dividend
         D;JNE
         @R3
         M=-1
         @R3
         M=M-1
-        @Div_halt
+        @ks_Div_halt
         0;JMP
-    (Div_endAlgo1)
+    (ks_Div_endAlgo1)
         @R5
         D=M
-        @Div_dividend_nonneg
+        @ks_Div_dividend_nonneg
         D;JEQ
         @R6
         D=M
-        @Div_both_negative
+        @ks_Div_both_negative
         D;JNE
         @R3
         D=M
-        @Div_div_neg_divpos_rem_zero
+        @ks_Div_div_neg_divpos_rem_zero
         D;JEQ
         @R2
         D=M
@@ -461,20 +549,20 @@ A=M
         D=D-M
         @R3
         M=D
-        @Div_halt
+        @ks_Div_halt
         0;JMP
-    (Div_div_neg_divpos_rem_zero)
+    (ks_Div_div_neg_divpos_rem_zero)
         @R2
         D=M
         D=-D
         @R2
         M=D
-        @Div_halt
+        @ks_Div_halt
         0;JMP
-    (Div_both_negative)
+    (ks_Div_both_negative)
         @R3
         D=M
-        @Div_both_neg_rem_zero
+        @ks_Div_both_neg_rem_zero
         D;JEQ
         @R2
         D=M
@@ -487,33 +575,33 @@ A=M
         D=D-M
         @R3
         M=D
-        @Div_halt
+        @ks_Div_halt
         0;JMP
-    (Div_both_neg_rem_zero)
-        @Div_halt
+    (ks_Div_both_neg_rem_zero)
+        @ks_Div_halt
         0;JMP
-    (Div_dividend_nonneg)
+    (ks_Div_dividend_nonneg)
         @R6
         D=M
-        @Div_div_pos_divneg
+        @ks_Div_div_pos_divneg
         D;JNE
-        @Div_halt
+        @ks_Div_halt
         0;JMP
-    (Div_div_pos_divneg)
+    (ks_Div_div_pos_divneg)
         @R2
         D=M
         D=-D
         @R2
         M=D
-        @Div_halt
+        @ks_Div_halt
         0;JMP
-    (Div_sigfpe_nonzero_dividend)
+    (ks_Div_sigfpe_nonzero_dividend)
         @R3
         M=-1
-        @Div_halt
+        @ks_Div_halt
         0;JMP
-    (Div_halt)
-        @R14
+    (ks_Div_halt)
+        @ks_Div_return
         A=M
         0;JMP
 
