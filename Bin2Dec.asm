@@ -180,6 +180,80 @@ D;JEQ                   // if bitsEntered - 16 = 0 is true, then do the next ste
 //************************* "END MAIN" *************************************
 
 // FUNCTION
+// Short loop for condition 5 that calls ks_processBuf and then goes into a loop waiting for c, q, or enter to be pressed
+(gc_PROCESS_LOOP)
+// ks_processBuf call goes here
+
+(gc_PROCESS_LOOP_NEXT)
+// get_key function call goes here
+@gc_currKey         // this should be the return value of get_key, the if-else structure depends on this
+M=1                 // just a test value for now until get_key is done
+
+
+// If current key = c, then clear whole buffer
+@gc_PL_CALL_CLEARBUF_c            // if 0BIT_CHECK is false, then clearbuf needs to be called
+D=A                             // so prepare jump to call it on return from function call
+@gc_0BIT_CHECK_FALSE_RETURN     
+M=D 
+
+@gc_LOOP_START                  // if 0BIT_CHECK is true, then buffer is already empty so 
+D=A                             // clearbuf doesnt need to be called, jump straight to loop start in main
+@gc_0BIT_CHECK_TRUE_RETURN
+M=D 
+
+@99                 // ASCII value for c
+D=A 
+@gc_currKey
+D=M-D               // currKey value - c ASCII value 
+@gc_0BIT_CHECK
+D;JEQ               // if currKey is c, then jump to 0 bit check and let it handle where to jump control back to
+
+@128                 // ASCII value for enter
+D=A 
+@gc_currKey
+D=M-D               // currKey value - enter ASCII value 
+@gc_0BIT_CHECK
+D;JEQ               // if currKey is enter, then jump to 0 bit check and let it handle where to jump control back to
+
+@gc_PROCESS_LOOP_q  // otherwise it is not c or enter so jump to next condition check
+0;JMP
+
+(gc_PL_CALL_CLEARBUF_c)
+//clearBuf function call goes here
+@gc_LOOP_START          // after function call, restart loop to get the next key
+0;JMP
+
+
+
+// If current key = q, then clear whole buffer AND terminate program
+(gc_PROCESS_LOOP_q)
+@gc_PL_CALL_CLEARBUF_q    // if 0BIT_CHECK is false, then clearbuf needs to be called
+D=A                             // so prepare jump to call it on return from function call
+@gc_0BIT_CHECK_FALSE_RETURN     
+M=D 
+
+@END                            // if 0BIT_CHECK is true, then buffer is already empty so 
+D=A                             // clearbuf doesnt need to be called, jump straight to terminate program
+@gc_0BIT_CHECK_TRUE_RETURN
+M=D 
+
+@113                // ASCII value for q
+D=A 
+@gc_currKey
+D=M-D               // currKey value - q ASCII value 
+@gc_0BIT_CHECK
+D;JEQ               // if currKey is q, then do next steps
+@gc_PROCESS_LOOP_NEXT      // otherwise it is not q so restart loop
+0;JMP
+
+(gc_PL_CALL_CLEARBUF_q)
+//clearBuf function call goes here
+@END                // terminate program
+0;JMP
+
+
+
+// FUNCTION
 // Outputs numbers 0-9 to the display using currKey, updates ge_current_column accordingly
 (gc_OUTPUT_09)         
 @gc_currKey                 
@@ -331,17 +405,17 @@ A=M
 
 
 // Mult function
-// Multiplies R0 and R1 and stores the result in R2.
-// (R0, R1, R2 refer to RAM[0], RAM[1], and RAM[2], respectively.)
+// Multiplies R100 and R101 and stores the result in R102.
+// (R100, R101, R102 refer to RAM[0], RAM[1], and RAM[2], respectively.)
 // The algorithm handles positive and negative operands.
 (ks_Mult)
-    @R2
+    @R102
     M=0
-    @R0
+    @R100
     D=M
     @ks_mul_tmp_X
     M=D
-    @R1
+    @R101
     D=M
     @ks_mul_tmp_Y
     M=D
@@ -356,7 +430,7 @@ A=M
     (ks_Mult_isPositiveMultiplier)
         @ks_mul_tmp_X
         D=M
-        @R2
+        @R102
         M=D+M
         @ks_mul_tmp_Y
         M=M-1
@@ -380,38 +454,38 @@ A=M
         0;JMP
 
 // Pow function
-// Uses Mult to compute R5 = R3 ^ R4 (R3 = base, R4 = exponent, R5 = result).
-// R8 is used as the exponent counter. R5 is initialized to 1 and repeatedly
-// multiplied by R3 using the Mult routine R4 times.
+// Uses Mult to compute R105 = R103 ^ R104 (R103 = base, R104 = exponent, R105 = result).
+// R108 is used as the exponent counter. R105 is initialized to 1 and repeatedly
+// multiplied by R103 using the Mult routine R104 times.
 (ks_Pow)
-    @R5
+    @R105
     M=1
-    @R4
+    @R104
     D=M
-    @R8
+    @R108
     M=D
     (ks_Pow_startLoop)
-        @R8
+        @R108
         D=M
         @ks_Pow_endPower
         D;JEQ
-        @R5
+        @R105
         D=M
-        @R0
+        @R100
         M=D
-        @R3
+        @R103
         D=M
-        @R1
+        @R101
         M=D
         @ks_Mult
         @ks_Pow_mulRet
         0;JMP
     (ks_Pow_mulRet)
-        @R2
+        @R102
         D=M
-        @R5
+        @R105
         M=D
-        @R8
+        @R108
         M=M-1
         @ks_Pow_startLoop
         0;JMP
@@ -421,111 +495,111 @@ A=M
         0;JMP
 
 // Div function
-// Performs integer (Euclidean) division: R0 / R1 = R2  (R0,R1,R2 refer to RAM[0],RAM[1],RAM[2])
-// The remainder is stored in R3.
-// Usage: Before executing, put the dividend in R0 and the divisor in R1.
+// Performs integer (Euclidean) division: R100 / R101 = R102  (R100,R101,R102 refer to RAM[0],RAM[1],RAM[2])
+// The remainder is stored in R103.
+// Usage: Before executing, put the dividend in R100 and the divisor in R101.
 (ks_Div)
-    @R0
+    @R100
     D=M
-    @R1
+    @R101
     A=M
     D=A
     @ks_Div_sigfpe
     D;JEQ
-    @R0
+    @R100
     D=M
     @ks_Div_posDividend
     D;JGE
     @ks_Div_negDividend
     0;JMP
     (ks_Div_posDividend)
-        @R5
+        @R105
         M=0
-        @R1
+        @R101
         D=M
         @ks_Div_posDivisor
         D;JGE
         @ks_Div_negDivisor
         0;JMP
     (ks_Div_negDividend)
-        @R5
+        @R105
         M=1
-        @R1
+        @R101
         D=M
         @ks_Div_posDivisor
         D;JGE
         @ks_Div_negDivisor
         0;JMP
     (ks_Div_posDivisor)
-        @R1
+        @R101
         D=M
-        @R4
+        @R104
         M=D
         @R6
         M=0
         @ks_Div_runAlgorithm
         0;JMP
     (ks_Div_runAlgorithm)
-        @R5
+        @R105
         D=M
         @ks_Div_runAlgorithm_posdiv
         D;JEQ
-        @R0
+        @R100
         D=M
         D=-D
-        @R3
+        @R103
         M=D
         @ks_Div_runAlgorithm_after
         0;JMP
     (ks_Div_runAlgorithm_posdiv)
-        @R0
+        @R100
         D=M
-        @R3
+        @R103
         M=D
     (ks_Div_runAlgorithm_after)
-        @R2
+        @R102
         M=0
     (ks_Div_algo1)
-        @R3
+        @R103
         D=M
-        @R4
+        @R104
         D=D-M
         @ks_Div_endAlgo1
         D;JLT
-        @R3
+        @R103
         M=D
-        @R2
+        @R102
         D=M
         D=D+1
-        @R2
+        @R102
         M=D
         @ks_Div_algo1
         0;JMP
     (ks_Div_negDivisor)
-        @R1
+        @R101
         D=M
         D=-D
-        @R4
+        @R104
         M=D
         @R6
         M=1
         @ks_Div_runAlgorithm
         0;JMP
     (ks_Div_sigfpe)
-        @R2
+        @R102
         M=0
-        @R0
+        @R100
         D=M
         @ks_Div_sigfpe_nonzero_dividend
         D;JNE
-        @R3
+        @R103
         M=-1
-        @R3
+        @R103
         M=M-1
         @ks_Div_halt
         0;JMP
     (ks_Div_endAlgo1)
-        @R5
+        @R105
         D=M
         @ks_Div_dividend_nonneg
         D;JEQ
@@ -533,47 +607,47 @@ A=M
         D=M
         @ks_Div_both_negative
         D;JNE
-        @R3
+        @R103
         D=M
         @ks_Div_div_neg_divpos_rem_zero
         D;JEQ
-        @R2
+        @R102
         D=M
         D=-D
         D=D-1
-        @R2
+        @R102
         M=D
-        @R4
+        @R104
         D=M
-        @R3
+        @R103
         D=D-M
-        @R3
+        @R103
         M=D
         @ks_Div_halt
         0;JMP
     (ks_Div_div_neg_divpos_rem_zero)
-        @R2
+        @R102
         D=M
         D=-D
-        @R2
+        @R102
         M=D
         @ks_Div_halt
         0;JMP
     (ks_Div_both_negative)
-        @R3
+        @R103
         D=M
         @ks_Div_both_neg_rem_zero
         D;JEQ
-        @R2
+        @R102
         D=M
         D=D+1
-        @R2
+        @R102
         M=D
-        @R4
+        @R104
         D=M
-        @R3
+        @R103
         D=D-M
-        @R3
+        @R103
         M=D
         @ks_Div_halt
         0;JMP
@@ -588,15 +662,15 @@ A=M
         @ks_Div_halt
         0;JMP
     (ks_Div_div_pos_divneg)
-        @R2
+        @R102
         D=M
         D=-D
-        @R2
+        @R102
         M=D
         @ks_Div_halt
         0;JMP
     (ks_Div_sigfpe_nonzero_dividend)
-        @R3
+        @R103
         M=-1
         @ks_Div_halt
         0;JMP

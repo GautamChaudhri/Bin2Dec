@@ -25,11 +25,15 @@
 
 @ge_currentColumn
 M=0
-@3276
+@0
 D=A
-@10000
+@24576
+D=D-A
+@8192
 D=D-A
 @testDec
+M=D
+@mostNegative
 M=D
 //************************* "gc_OUTPUT_DECIMAL" *****************************************
 // 0) Output -> first
