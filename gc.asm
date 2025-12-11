@@ -23,6 +23,20 @@
 // Result (Post-conditions) is character X is output on the display at column ge_currentColumn
 //
 
+
+// //************************* "gc_OUTOUT_MOST_NEGATIVE" *****************************************
+
+
+
+
+
+
+
+
+
+
+
+
 @ge_currentColumn
 M=0
 @0
@@ -31,7 +45,7 @@ D=A
 D=D-A
 @8192
 D=D-A
-@testDec
+@gc_dec_digit
 M=D
 @mostNegative
 M=D
@@ -55,18 +69,18 @@ M=D
 @ge_output_g            // print >
 0;JMP
 
-// 1) Check for special case: testDec = 0
+// 1) Check for special case: gc_dec_digit = 0
 // If true, then print 0 to display and terminate function call
 (gc_0CASE)
 @ge_currentColumn
 M=M+1                   // increment current column since > just printed
 
-@testDec
+@gc_dec_digit
 D=M
 @gc_OD_CHECKSIGN        
-D;JNE                   // if testDec != 0, then jump to CHECKSIGN
+D;JNE                   // if gc_dec_digit != 0, then jump to CHECKSIGN
 
-@END                    // otherwise testDec = 0 so fall through and deal with it
+@END                    // otherwise gc_dec_digit = 0 so fall through and deal with it
 D=A 
 @ge_output_return       // set return address to end after function call
 M=D 
@@ -76,27 +90,27 @@ M=D
 
 // 2) Check if decimal is positive or negative and then print corresponding sign to screen
 (gc_OD_CHECKSIGN)
-@testDec
+@gc_dec_digit
 D=M 
 @gc_OD_NEG
-D;JLT                   // if testDec < 0, then number is negative, jump and prepare to call output_-
+D;JLT                   // if gc_dec_digit < 0, then number is negative, jump and prepare to call output_-
 
-@gc_OD_EXTRACT           // else testDec is positive, fall through and prepare to call output_+
+@gc_OD_EXTRACT           // else gc_dec_digit is positive, fall through and prepare to call output_+
 D=A 
 @ge_output_return       // set return address of function call to be next step, EXTRACT
 M=D 
 @ge_output_+            // call function and print + to screen
 0;JMP
 
-(gc_OD_NEG)             // testDec is negative, first negate testDec so - is not extracted in the next step
-@testDec
+(gc_OD_NEG)             // gc_dec_digit is negative, first negate gc_dec_digit so - is not extracted in the next step
+@gc_dec_digit
 D=M
-@R0                     // R0 = testDec
+@R0                     // R0 = gc_dec_digit
 M=D 
 @R1                     // R1 = -1
 M=-1
 
-// Use mult to negate testDec
+// Use mult to negate gc_dec_digit
 @gc_OD_NEG_NEXT         // set return point
 D=A 
 @ks_Mult_return
@@ -105,9 +119,9 @@ M=D
 0;JMP
 
 (gc_OD_NEG_NEXT)
-@R2                     // move mult result back in to testDec
+@R2                     // move mult result back in to gc_dec_digit
 D=M
-@testDec                // testDec = testDec * -1
+@gc_dec_digit                // gc_dec_digit = gc_dec_digit * -1
 M=D 
 
 // Now print - to display
@@ -131,7 +145,7 @@ D=A
 M=D
 
 // Place decimal number in new variable so original variable is not changed
-@testDec 
+@gc_dec_digit 
 D=M
 @gc_numHold
 M=D 
@@ -345,6 +359,8 @@ M=M+1
 @gc_OUTPUT_09_RETURN    // jump back to function call
 A=M
 0;JMP
+
+
 
 
 

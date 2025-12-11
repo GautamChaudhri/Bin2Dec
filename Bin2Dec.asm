@@ -20,12 +20,16 @@
 @ge_currentColumn   // track column to draw in
 M=0
 @gc_bitsEntered     // keeps track of number of bits entered, if-else structure depends on this
-M=0                 
+M=0              
 
 (gc_LOOP_START)
-// 0) get_key function call goes here
-@gc_currKey         // this should be the return value of get_key, the if-else structure depends on this
-M=1                 // just a test value for now until get_key is done
+@jm_getKey
+0;JMP
+
+(jm_getKeyReturn) // Return from jm_getKey with key input in stored in D register
+
+@gc_currKey     // this should be the return value of get_key, the if-else structure depends on this
+M=D             // Stores value from D register (jm_getKey) into gc_currKey              // just a test value for now until get_key is done
 
 
 // Now begin if else structure to decide what happens next
@@ -36,7 +40,7 @@ D=M
 @0_16BIT_CHECK
 D;JEQ               // if currKey = 0, then jump to 0-16 bit check
 D-1;JEQ             // else if currKey = 1, then also jump to 0-16 bit check
-@CONDITION2         // otherwise currKey is neither, jump to next condition check
+@gc_CONDITION2      // otherwise currKey is neither, jump to next condition check
 0;JMP
 
 (0_16BIT_CHECK)          // check if < 16 bits entered
@@ -58,10 +62,12 @@ M=D
 0;JMP
 
 (gc_CONDITION1_NEXT)
-//addBuf function call goes HERE
-@gc_LOOP_START          // after function call, restart loop to get the next key
+@gc_LOOP_START
+D=A
+@ks_addBuf_hlt
+M=D
+@ks_addBuf          // after function call, restart loop to get the next key
 0;JMP
-
 
 
 // 2) If current key = backspace AND enteredBits > 0, then remove last input
@@ -86,10 +92,12 @@ D;JEQ               // if currKey is backspace, then jump to 0BIT_CHECK and let 
 0;JMP
 
 (gc_CONDITION2_MET)
-//delBuf function call goes here
-@gc_LOOP_START          // after function call, restart loop to get the next key
-0;JMP
-
+@gc_LOOP_START          //access the next sequential label
+D=A                     //store the label itself in D
+@cc_delBuffer_return    //access the delete buffer return variable
+M=D                     //store the label in the variable
+@cc_DEL_BUFFER          //access the delete buffer function label
+0;JMP                   //jump there unconditionally
 
 
 // 3) If current key = c, then clear whole buffer
@@ -104,7 +112,7 @@ D=A                             // clearbuf doesnt need to be called, jump strai
 @gc_0BIT_CHECK_TRUE_RETURN
 M=D 
 
-@99                 // ASCII value for c
+@67                 // ASCII value for c
 D=A 
 @gc_currKey
 D=M-D               // currKey value - c ASCII value 
@@ -114,10 +122,12 @@ D;JEQ               // if currKey is c, then jump to 0 bit check and let it hand
 0;JMP
 
 (gc_CONDITION3_CALL_CLEARBUF)
-//clearBuf function call goes here
-@gc_LOOP_START          // after function call, restart loop to get the next key
-0;JMP
-
+@gc_LOOP_START          //access the next sequential label
+D=A                     //store the label itself in D
+@cc_clrBuffer_return    //access the clear buffer return variable
+M=D                     //store the label in the variable
+@cc_CLEAR_BUFFER        //access the clear buffer function
+0;JMP                   //jump there unconditionally
 
 
 // 4) If current key = q, then clear whole buffer AND terminate program
@@ -132,7 +142,7 @@ D=A                             // clearbuf doesnt need to be called, jump strai
 @gc_0BIT_CHECK_TRUE_RETURN
 M=D 
 
-@113                // ASCII value for q
+@81                // ASCII value for q
 D=A 
 @gc_currKey
 D=M-D               // currKey value - q ASCII value 
@@ -142,10 +152,12 @@ D;JEQ               // if currKey is q, then do next steps
 0;JMP
 
 (gc_CONDITION4_CALL_CLEARBUF)
-//clearBuf function call goes here
-@END                // terminate program
-0;JMP
-
+@END                    //access the next sequential label
+D=A                     //store the label itself in D
+@cc_clrBuffer_return    //access the clear buffer return variable
+M=D                     //store the label in the variable
+@cc_CLEAR_BUFFER        //access the clear buffer function
+0;JMP                   //jump there unconditionally
 
 
 // 5) If current key = enter AND exactly 16 bits entered, then process buffer
@@ -170,64 +182,87 @@ D;JEQ                   // if bitsEntered - 16 = 0 is true, then do the next ste
 0;JMP                   // otherwise its false so restart loop
 
 (gc_CONDITION5_MET)
-// processBuf and steps after that go here
-
+@gc_PROCESS_LOOP        // Jump to helper function that begins processing
+0;JMP
 
 (END)
 @END
 0;JMP
-
 //************************* "END MAIN" *************************************
 
-// FUNCTION
-// Short loop for condition 5 that calls ks_processBuf and then goes into a loop waiting for c, q, or enter to be pressed
+
+
+
+
+//************************* "gc_PROCESS_LOOP" *************************************
+// 1) Call processBuf and then output to display
 (gc_PROCESS_LOOP)
-// ks_processBuf call goes here
+@gc_DISPLAY_DECIMAL         // set return address
+D=A 
+@ks_conv_hlt
+M=D
+@ks_conv16b                 // jump to processBuf function
+0;JMP
 
+(gc_DISPLAY_DECIMAL)
+@ks_conv16b                 // copy over decimal value into parameter for output decimal function
+D=M 
+@gc_dec_digit
+M=D 
+
+@gc_PROCESS_LOOP_NEXT       // set return address
+D=A
+@gc_OUTPUT_DECIMAL_RETURN 
+M=D 
+@gc_OUTPUT_DECIMAL          // jump to display
+0;JMP
+
+// 2) Get next key
 (gc_PROCESS_LOOP_NEXT)
-// get_key function call goes here
-@gc_currKey         // this should be the return value of get_key, the if-else structure depends on this
-M=1                 // just a test value for now until get_key is done
+@jm_getKey
+0;JMP
 
 
-// If current key = c, then clear whole buffer
-@gc_PL_CALL_CLEARBUF_c            // if 0BIT_CHECK is false, then clearbuf needs to be called
+// 3) If current key = c or enter, then clear whole buffer
+@gc_PL_CALL_CLEARBUF    // if 0BIT_CHECK is false, then clearbuf needs to be called
 D=A                             // so prepare jump to call it on return from function call
 @gc_0BIT_CHECK_FALSE_RETURN     
 M=D 
 
-@gc_LOOP_START                  // if 0BIT_CHECK is true, then buffer is already empty so 
-D=A                             // clearbuf doesnt need to be called, jump straight to loop start in main
+@gc_RESTART                  // if 0BIT_CHECK is true, then buffer is already empty so 
+D=A                             // clearbuf doesnt need to be called, jump straight to restart
 @gc_0BIT_CHECK_TRUE_RETURN
 M=D 
 
-@99                 // ASCII value for c
+@67                 // ASCII value for c
 D=A 
 @gc_currKey
 D=M-D               // currKey value - c ASCII value 
 @gc_0BIT_CHECK
 D;JEQ               // if currKey is c, then jump to 0 bit check and let it handle where to jump control back to
 
-@128                 // ASCII value for enter
+@128                 // ASCII value for c
 D=A 
 @gc_currKey
-D=M-D               // currKey value - enter ASCII value 
+D=M-D               // currKey value - c ASCII value 
 @gc_0BIT_CHECK
-D;JEQ               // if currKey is enter, then jump to 0 bit check and let it handle where to jump control back to
+D;JEQ               // if currKey is c, then jump to 0 bit check and let it handle where to jump control back to
 
-@gc_PROCESS_LOOP_q  // otherwise it is not c or enter so jump to next condition check
+@gc_TERMINATE       // otherwise it is not c so jump to next condition check
 0;JMP
 
-(gc_PL_CALL_CLEARBUF_c)
-//clearBuf function call goes here
-@gc_LOOP_START          // after function call, restart loop to get the next key
-0;JMP
+(gc_PL_CALL_CLEARBUF)
+@gc_RESTART             //access the next sequential label
+D=A                     //store the label itself in D
+@cc_clrBuffer_return    //access the clear buffer return variable
+M=D                     //store the label in the variable
+@cc_CLEAR_BUFFER        //access the clear buffer function
+0;JMP                   //jump there unconditionally
 
 
-
-// If current key = q, then clear whole buffer AND terminate program
-(gc_PROCESS_LOOP_q)
-@gc_PL_CALL_CLEARBUF_q    // if 0BIT_CHECK is false, then clearbuf needs to be called
+// 4) If current key = q, then clear whole buffer AND terminate program
+(gc_TERMINATE)
+@gc_CLEAR_TERMINATE             // if 0BIT_CHECK is false, then clearbuf needs to be called
 D=A                             // so prepare jump to call it on return from function call
 @gc_0BIT_CHECK_FALSE_RETURN     
 M=D 
@@ -237,24 +272,538 @@ D=A                             // clearbuf doesnt need to be called, jump strai
 @gc_0BIT_CHECK_TRUE_RETURN
 M=D 
 
-@113                // ASCII value for q
+@81                // ASCII value for q
 D=A 
 @gc_currKey
 D=M-D               // currKey value - q ASCII value 
 @gc_0BIT_CHECK
-D;JEQ               // if currKey is q, then do next steps
-@gc_PROCESS_LOOP_NEXT      // otherwise it is not q so restart loop
+D;JEQ                       // if currKey is q, then do next steps
+@gc_PROCESS_LOOP_NEXT      // otherwise it is not q so get key again
 0;JMP
 
-(gc_PL_CALL_CLEARBUF_q)
-//clearBuf function call goes here
-@END                // terminate program
+(gc_CLEAR_TERMINATE)
+@END                    //access the next sequential label
+D=A                     //store the label itself in D
+@cc_clrBuffer_return    //access the clear buffer return variable
+M=D                     //store the label in the variable
+@cc_CLEAR_BUFFER        //access the clear buffer function
+0;JMP                   //jump there unconditionally
+
+
+
+
+
+// Performs raw conversion logic (sum of product expansion) using Mult and Pow functions
+// R0-R15 store the bits to convert in big-endian order (R0 = most significant bit)
+// If R0 is 1, then we start counting at -32768, otherwise we start counting at 0
+// We need to store the -32768 in 4 steps: @R0, D=A, @32768, D=D-A, because we can't directly @ a negative address
+// In addition, we can't use any R0-R15 registers to perform any logic; we need to use variables to store anything that isn't a bit
+// Store the result in ks_convRet, use ks_conv_i for the index, ks_conv_sum for the accumulator, and other ks_conv_* variables as needed
+(ks_conv16b)
+    // Special case: highest negative value detected
+    @R0
+    D=M
+    @KS_MOST_NEGATIVE
+    M=D
+    M=1;JEQ
+
+    // Initialize sum to 0
+    @ks_conv_sum
+    M=0
+
+    // Initialize index
+    @ks_conv_i
+    M=0
+    (ks_conv_loop)
+        // for (i = 0; i < 16; ++i) and make sure we're starting from 0 and incrementing, NOT the other way around
+
+        // Initialize incrementing (emphasis on incrementing) loop counter
+        @ks_conv_i
+        D=A
+        @ks_conv_tmp
+        M=D
+
+        // Set exponent = 15 - i
+        @R15
+        D=A
+        @ks_conv_tmp
+        D=D-M
+        @ks_conv_exp
+        M=D
+
+        // Get register address from ks_conv_tmp
+        @ks_conv_tmp
+        D=M
+        
+        // Load bit value from R[i]
+        @ks_conv_i
+        A=D+M
+        D=M
+
+        // Store into ks_conv_bitValue
+        @ks_conv_bitValue
+        M=D
+
+        // Compute contribution: sum = bitValue + 2^(15 - i)
+        // If bit is 0 then we're just adding 0 anyway, which is a no-op, so no need to check for that
+
+        // Load address of R2 (which is always 2) into the base (which is the arbitrary variable name of R103 in our case)
+        @R2
+        D=A
+        @R103
+        M=D
+
+        // Load exponent into R104
+        @ks_conv_exp
+        D=M
+        @R104
+        M=D
+
+        // Call Pow subroutine
+        @ks_Pow
+
+        // Retrieve Pow result
+        @ks_Pow_return
+        D=M
+
+        // Add to the sum (again, if bit is 0 then we're calculating 2^(15 - i) + 0, which is just 2^(15 - i) anyway)
+        @ks_conv_sum
+        M=D+M
+
+        // Increment index
+        @ks_conv_i
+        A=A+1
+
+        // Check loop condition (note that ks_conv_exp is just ks_conv_i inverted, making this, in theory, equivalent to i < 16)
+        @ks_conv_exp
+        D=M
+        @ks_conv_loop
+        0;JGT
+
+        // Store final result in ks_convRet
+        @ks_conv_sum
+        D=M
+        @ks_convRet
+        M=D
+
+        @ks_conv_hlt
+        0;JMP
+
+
+
+
+        
+//************************* "cc_DEL_BUFFER" *************************************
+//after backspace is pressed, and if bits entered is more than 0
+//deletes the previous bit entered from the user display and decrements
+//the bits entered to reflect that change
+(cc_DEL_BUFFER)
+@gc_bitsEntered       //go to the amount of bits entered
+D=M                   //store the variable's stored value in D
+@cc_DEL_END           //access the end of this function
+D;JEQ                 //jump to the end of the function if bits entered is 0
+@ge_currentColumn     //get the current column
+M=M-1                 //decrement by 1 to previous bit
+@cc_CONTINUE_DEL      //set return
+D=A                   //put the return in D
+@ge_output_return     //access the output function return
+M=D                   //put the return in the output function return
+@ge_output_s          //access the space output function
+0;JMP                 //jump there unconditionally
+
+(cc_CONTINUE_DEL) 
+@gc_bitsEntered       //access the bits entered again
+M=M-1                 //decrement the amount stored by 1
+A=M                   //access this previously entered bit
+M=0                   //clear this bit
+
+(cc_DEL_END)
+@cc_delBuffer_return  //access the return for this function
+A=M                   //set the address to the stored return
+0;JMP                 //jump there unconditionally
+
+
+
+
+
+//************************* "cc_CLEAR_BUFFER" *************************************
+//after c is pressed, and if bits entered is more than 0
+//takes the current amount of bits entered as a loop control
+//and calls the delete buffer function that many times
+//which resets bits entered to 0, gradually, to reflect the change
+(cc_CLEAR_BUFFER)
+@gc_bitsEntered       //go to the amount of bits entered
+D=M                   //store the variable's stored value in D
+@cc_CLEAR_END         //access the end of this function
+D;JEQ                 //jump to the end of the function if bits entered is 0
+@cc_bitsToClear       //create a variable tracking how many bits need clearing
+M=D                   //store current bits entered there
+
+(cc_CLEAR_LOOP)
+@cc_bitsToClear       //access bits to clear
+D=M                   //store its value in D
+@cc_CLEAR_END         //access the end of this function
+D;JEQ                 //jump when bits to clear is 0
+
+@cc_DEL_RETURN        //access the delete function return
+D=A                   //store this in D         
+@cc_delBuffer_return  //access the return variable
+M=D                   //store the function return in the return variable
+@cc_DEL_BUFFER        //access the delete buffer function
+0;JMP                 //jump there unconditionally
+
+(cc_DEL_RETURN)
+@cc_bitsToClear       //access bits to clear
+M=M-1                 //decrement bits to clear
+@cc_CLEAR_LOOP        //access the start of the loop
+0;JMP                 //jump there unconditionally
+
+(cc_CLEAR_END)
+@cc_clrBuffer_return  //access the return for this function
+A=M                   //set the address to the stored return
+0;JMP                 //jump there unconditionally
+
+
+
+
+
+//************************* "ks_addBuf" *************************************
+//DESCRIPTION: Adds 0 or 1 to buffer
+//INPUT: gc_currKey holds the value of either 0 or 1
+//OUTPUT: the bit has been entered into the buffer
+(ks_addBuf)
+    // Load current bit from gc_currKey
+    @gc_currKey
+    D=M
+
+    // Store bit into R[gc_bitsEntered]
+    @gc_bitsEntered
+    A=M // R[gc_bitsEntered]
+    M=D
+
+    // Increment gc_bitsEntered by 1 after having stored the bit
+    @gc_bitsEntered
+    M=M+1
+
+    // Exit function; this is only called when the a key is pressed
+    @ks_addBuf_hlt
+    A=M
+    0;JMP
+
+
+
+
+//************************* "jm_getKey" *************************************
+// Description: Reads ASCII data from keyboard 
+// Input: User keyboard input
+// Output: Output literal value for '0' and '1' OR ASCII value for keys 'c', 'q', 'enter', and 'backspace'
+(jm_getKey)                 // Primary loop that waits for a key press and debounces it
+(jm_getKey_waitPress)       // Secondary loop that waits for a key press
+
+// === Loads key press and stores in temp. variable ===
+@KBD                        // Stores keyboard input into A register
+D=M                         // Load RAM [A] ASCII value into D 
+@jm_getKey_waitPress        // Load jm_getKey_waitPress into A register
+D;JEQ                       // Loop back to (jm_getKey_waitPress) if no value detected in D (D = '0' / NULL)
+@jm_keyTemp                 // Loads temp. variable location into A register
+M=D                         // Stores the ASCII value of the key pressed into RAM [A]
+
+// === Check for '0' (48) ===
+@48                         // Loads 48 into A register
+D=D-A                       // Subtracts 48 from user inputted key value
+@jm_key0                    // Loads jm_key0 into A regsiter
+D;JEQ                       // Jumps to jm_key0 if D == 0
+
+// === Check for '1' (49) ===
+@jm_keyTemp                 // Reloads temp. variable location into A register
+D=M                         // Reloads the ASCII value of the key pressed into RAM [A]
+@49                         // Loads 49 into A register
+D=D-A                       // Subtracts 49 from user inputted key value
+@jm_key1                    // Loads jm_key1 into A regsiter
+D;JEQ                       // Jumps to jm_key1 if D == 0
+
+// === Check for 'backspace' (129) ===
+@jm_keyTemp                 // Reloads temp. variable location into A register
+D=M                         // Reloads the ASCII value of the key pressed into RAM [A]
+@129                        // Loads 129 into A register
+D=D-A                       // Subtracts 129 from user inputted key value
+@jm_validKey                // Loads jm_validKey into A regsiter
+D;JEQ                       // Jumps to jm_validKey if D == 0
+
+// === Check for 'enter' (128) ===
+@jm_keyTemp                 // Reloads temp. variable location into A register
+D=M                         // Reloads the ASCII value of the key pressed into RAM [A]
+@128                        // Loads 128 into A register
+D=D-A                       // Subtracts 128 from user inputted key value
+@jm_validKey                // Loads jm_validKey into A regsiter
+D;JEQ                       // Jumps to jm_validKey if D == 0
+
+// === Check for 'c' (67) ===
+@jm_keyTemp                 // Reloads temp. variable location into A register
+D=M                         // Reloads the ASCII value of the key pressed into RAM [A]
+@67                         // Loads 67 into A register
+D=D-A                       // Subtracts 67 from user inputted key value
+@jm_validKey                // Loads jm_validKey into A regsiter
+D;JEQ                       // Jumps to jm_validKey if D == 0
+
+// === Check for 'q' (81) ===
+@jm_keyTemp                 // Reloads temp. variable location into A register
+D=M                         // Reloads the ASCII value of the key pressed into RAM [A]
+@81                        // Loads 81 into A register
+D=D-A                       // Subtracts 81 from user inputted key value
+@jm_validKey                // Loads jm_validKey into A regsiter
+D;JEQ                       // Jumps to jm_validKey if D == 0
+
+// === Invalid Key Inputted ===
+@jm_getKey                  // Loads jm_getKey into A register
+D=A                         // Loads jm_getKey address into D register
+@jm_keyDebounce_return      // Loads jm_keyDebounce_return into A register
+M=D                         // Stores jm_getKey location into jm_keyDebounce_return RAM location
+@jm_keyDebounce             // Waits here until key is released
+0;JMP 
+
+// === Conversion Handlers ===
+(jm_key0)                   // Converts ASCII '0' (48) to literal '0'
+@jm_keyTemp                 // Loads temp. variable location into A register
+M=0                         // Overrides literal 0 value into jm_keyTemp RAM location
+@jm_validKey                // Loads jm_validKey into A regsiter
+0;JMP
+
+(jm_key1)                   // Converts ASCII '1' (49) to literal '1'
+@jm_keyTemp                 // Loads temp. variable location into A register
+M=1                         // Overrides literal 1 value into jm_keyTemp RAM location
+@jm_validKey                // Loads jm_validKey into A regsiter
+0;JMP
+
+// === Valid Key Inputted ===
+(jm_validKey)               // Proceeds to debounce the valid key inputted
+@jm_getKey_afterDebounce    // Loads jm_getKey_afterDebounce into A register
+D=A                         // Loads jm_getKey_afterDebounce address into D register
+@jm_keyDebounce_return      // Loads jm_keyDebounce_return into A register
+M=D                         // Stores jm_getKey_afterDebounce location into jm_keyDebounce_return's memory
+@jm_keyDebounce             // Jumps to jm_keyDebounce and waits here until key is released
+0;JMP
+
+// === After Debounce ===
+(jm_getKey_afterDebounce)   // After debounce, return the key value
+@jm_keyTemp                 // Loads temp. variable location into A register
+D=M                         // Loads the final key value into D register
+@jm_getKeyReturn            // Returns literal '0'/'1' or ASCII value of 'c', 'q', 'enter', 'backspace'
 0;JMP
 
 
 
-// FUNCTION
-// Outputs numbers 0-9 to the display using currKey, updates ge_current_column accordingly
+
+
+//************************* "jm_keyDebounce" *************************************
+// Description: Secondary loop that prevents input from being repeated from a held/multiple keyboard inputs
+// Input: User keyboard input
+// Output: Original KBD value from jm_getKey
+// === Loop debounce until key is released ===
+(jm_keyDebounce)
+@KBD                         // Stores keyboard input into A register
+D=M                          // Load RAM [A] ASCII value into D 
+@jm_keyDebounce              // Loads jm_keyDebounce into A register
+D;JGT                        // Loop back to (jm_keyDebounce) if a value is still detected in D (D != '0' / NULL)
+                             // AKA key has not been released yet
+
+// === Key Released, return to calling function ===
+@jm_keyDebounce_return       // Loads jm_keyDebounce_return into A register
+A=M                          // Loads the return address into A register
+0;JMP                        // Jumps to memory address stored from jm_getKey_afterDebounce
+
+
+
+
+
+
+//************************* "gc_OUTPUT_DECIMAL" *************************************
+// DESCRIPTION: takes an entire decimal value and prints it to the screen along with ->
+// INPUT: decimal value should be placed in gc_dec_digit
+// OUTPUT: entire decimal value is printed to the screen along with ->
+// 0) Output -> first
+@gc_PRINT_G
+D=A 
+@ge_output_return
+M=D
+@ge_output_-            // print -
+0;JMP
+
+(gc_PRINT_G)
+@ge_currentColumn
+M=M+1                   // increment current column since - just printed
+
+@gc_0CASE
+D=A 
+@ge_output_return
+M=D
+@ge_output_g            // print >
+0;JMP
+
+// 1) Check for special case: gc_dec_digit = 0
+// If true, then print 0 to display and terminate function call
+(gc_0CASE)
+@ge_currentColumn
+M=M+1                   // increment current column since > just printed
+
+@gc_dec_digit
+D=M
+@gc_OD_CHECKSIGN        
+D;JNE                   // if gc_dec_digit != 0, then jump to CHECKSIGN
+
+@END                    // otherwise gc_dec_digit = 0 so fall through and deal with it
+D=A 
+@ge_output_return       // set return address to end after function call
+M=D 
+@ge_output_0            // print 0 to display, then terminate function
+0;JMP
+
+
+// 2) Check if decimal is positive or negative and then print corresponding sign to screen
+(gc_OD_CHECKSIGN)
+@gc_dec_digit
+D=M 
+@gc_OD_NEG
+D;JLT                   // if gc_dec_digit < 0, then number is negative, jump and prepare to call output_-
+
+@gc_OD_EXTRACT           // else gc_dec_digit is positive, fall through and prepare to call output_+
+D=A 
+@ge_output_return       // set return address of function call to be next step, EXTRACT
+M=D 
+@ge_output_+            // call function and print + to screen
+0;JMP
+
+(gc_OD_NEG)             // gc_dec_digit is negative, first negate gc_dec_digit so - is not extracted in the next step
+@gc_dec_digit
+D=M
+@R0                     // R0 = gc_dec_digit
+M=D 
+@R1                     // R1 = -1
+M=-1
+
+// Use mult to negate gc_dec_digit
+@gc_OD_NEG_NEXT         // set return point
+D=A 
+@ks_Mult_return
+M=D
+@ks_Mult                // R0 * R1 = R2
+0;JMP
+
+(gc_OD_NEG_NEXT)
+@R2                     // move mult result back in to gc_dec_digit
+D=M
+@gc_dec_digit                // gc_dec_digit = gc_dec_digit * -1
+M=D 
+
+// Now print - to display
+@gc_OD_EXTRACT           
+D=A 
+@ge_output_return       // set return address of function call to be next step, EXTRACT
+M=D 
+@ge_output_-            // call function and print - to screen
+0;JMP
+
+
+// 3) Take decimal number and extract each number from each place value and store in reverse order in array
+// Needed to find out which output_X function to call for each place value
+(gc_OD_EXTRACT)
+@ge_currentColumn
+M=M+1               // increment since either + or - was just printed to the screen
+
+@50
+D=A
+@gc_numArr          // initialize numArr
+M=D
+
+// Place decimal number in new variable so original variable is not changed
+@gc_dec_digit 
+D=M
+@gc_numHold
+M=D 
+
+// Divide numHold by 10, place remainder in numArry, repeat until numHold = 0
+@gc_index
+M=0
+(gc_OD_EXTRACT_LOOP)
+@gc_numHold
+D=M
+@R0
+M=D             // R0 = numHold
+@10
+D=A 
+@R1
+M=D             // R1 = 10
+
+@gc_OD_EXTRACT_NEXT
+D=A 
+@ks_Div_return     // set div return address
+M=D 
+@ks_Div            // R0 / R1 = R2, remainder in R3
+0;JMP           // jump to Div function
+
+(gc_OD_EXTRACT_NEXT)
+@R2 
+D=M 
+@gc_numHold
+M=D             // numHold = numHold / 10
+
+@gc_numArr
+D=M             // D = base address (2500)
+@gc_index 
+D=D+M           // D = base address + index
+@gc_temp
+M=D             // gc_temp = address of numArr[index]
+@R3
+D=M             // D = remainder value
+@gc_temp
+A=M             
+M=D             // numArr[index] = remainder
+@gc_index
+M=M+1           // index++
+
+@gc_numHold
+D=M 
+@gc_OD_EXTRACT_LOOP
+D;JGT                   // restart loop if numHold > 0
+
+
+// 4) Traverse num array in reverse and print each decimal value located in each element to screen by calling relevent
+// output_X function
+(gc_OD_PRINTDEC_LOOP)
+// Copy last digit in array to gc_digit, the parameter of gc_OUTPUT_09
+@gc_index 
+M=M-1               // index--
+@gc_numArr
+D=M
+@gc_index
+A=D+M
+D=M                 // D = numArr[index]
+@gc_digit
+M=D                 // gc_digit = D
+             
+
+// Call helper function OUTPUT_09 and let it handle printing to display
+@gc_PRINTDEC_NEXT
+D=A 
+@gc_OUTPUT_09_RETURN    // set return point for function call
+M=D
+@gc_OUTPUT_09           // jump to function
+0;JMP
+
+(gc_PRINTDEC_NEXT)
+@gc_index
+D=M
+@gc_OD_PRINTDEC_LOOP
+D;JGT                   // if gc_index >= 0, then loop again
+
+
+
+
+
+//************************* "FUNCTION: gc_OUTPUT_09" *****************************************
+// DESCRIPTION: Takes a single decimal value 0-9 and prints it to the screen. If the given value is not 0-9, then function is aborted
+// INPUT:       gc_currKey = holds decimal value 0-9
+// OUTPUT:      A decimal value 0-9 is printed to the display
 (gc_OUTPUT_09)         
 @gc_currKey                 
 D=M                     // D = currKey
@@ -383,10 +932,15 @@ A=M
 0;JMP
 
 
-// FUNCTION
-// Checks gc_bitsEntered to see if it has 0 bits or not. 
-// If gc_bitsEntered = 0, then the function jumps back to the instruction contained in gc_0BIT_CHECK_TRUE_RETURN pointer
-// If gc_bitsEntered != 0, then the function jumps back to the instruction contained in gc_0BIT_CHECK_FALSE_RETURN pointer
+
+
+
+//************************* "FUNCTION: gc_0BIT_CHECK" *****************************************
+// DESCRIPTION: Checks if gc_bitsEntered is 0 or not and jumps to the appropriate return address based on the result
+// INPUT:       gc_bitsEntered = number of bits currently entered
+
+// OUTPUT:      Jumps to the address stored in gc_0BIT_CHECK_TRUE_RETURN if gc_bitsEntered = 0,
+//              or jumps to the address stored in gc_0BIT_CHECK_FALSE_RETURN if gc_bitsEntered != 0
 (gc_0BIT_CHECK)
 @gc_bitsEntered     
 D=M
@@ -401,6 +955,8 @@ A=M                                 // located in gc_0BIT_CHECK_FALSE_RETURN
 @gc_0BIT_CHECK_TRUE_RETURN          // located in gc_0BIT_CHECK_TRUE_RETURN
 A=M 
 0;JMP
+
+
 
 
 
