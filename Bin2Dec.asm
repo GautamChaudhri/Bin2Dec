@@ -3,1073 +3,834 @@
 // by Nisan and Schocken, MIT Press.
 // File name: Bin2Dec.asm
 
-// Performs a binary-to-decimal conversion using a combination of the functions already defined in Mult.asm, Pow.asm, and Div.asm in the same directory
-
-// TODO: ks_processBuf, ks_getKey
-// * current condition checks check against 0 and 1 literally instead of their ASCII values. So getKey should convert
-//      characters 0-9 from their ASCII values to their literal values and store them in currKey
-//      non-numeric characters should remain as ASCII values
-// *DONE* | Condition 2 and 3 need safety checks for when entered bits = 0
-// *DONE* | Condition 1 should check for < 16 bits, not <= 16 bits as it says in the flowchart because if 
-//      there are already 16 bits and it continues, then we end up with overflow
-// * Need default case at bottom of decision tree in main to return to getKey and restart loop
-
 //************************* "MAIN" *****************************************
+// Description: Main entry point and control loop for binary-to-decimal converter.
+//              Initializes state, handles keyboard input, and dispatches to appropriate handlers.
+// Input: Keyboard input (0, 1, Enter, Backspace, 'c', 'q')
+// Output: Displays binary input and decimal result on screen
 (gc_RESTART)
-// set important variables to their initial values
-@ge_currentColumn   // track column to draw in
-M=0
-@gc_bitsEntered     // keeps track of number of bits entered, if-else structure depends on this
-M=0              
+    // Initialize State Variables
+    @gc_bitsEntered
+    M=0              
+    @ge_currentColumn
+    M=0
+    @ks_convRet
+    M=0
 
 (gc_LOOP_START)
-@jm_getKeyReturn              // set return address for jm_getKey
-D=A
-@jm_getKey_return
-M=D
-@jm_getKey
-0;JMP
-
-(jm_getKeyReturn) // Return from jm_getKey with key input in stored in D register
-
-@gc_currKey     // this should be the return value of get_key, the if-else structure depends on this
-M=D             // Stores value from D register (jm_getKey) into gc_currKey              // just a test value for now until get_key is done
-
-
-// Now begin if else structure to decide what happens next
-
-// 1) If current key = 0 or 1 and < 16 bits entered, then draw 0 or 1 and add to buffer
-@gc_currKey
-D=M
-@0_16BIT_CHECK
-D;JEQ               // if currKey = 0, then jump to 0-16 bit check
-D-1;JEQ             // else if currKey = 1, then also jump to 0-16 bit check
-@gc_CONDITION2      // otherwise currKey is neither, jump to next condition check
-0;JMP
-
-(0_16BIT_CHECK)          // check if < 16 bits entered
-@16
-D=A 
-@gc_bitsEntered
-D=M-D                   // bitsEntered - 16
-@gc_CONDITION1_MET
-D;JLT                   // if bitsEntered - 16 < 0 is true, then do the next steps
-@gc_CONDITION2          
-0;JMP                   // otherwise its false and jump to next condition check
-
-(gc_CONDITION1_MET)     // now call gc_OUTPUT_09 and then addBuf
-@gc_CONDITION1_NEXT     // setup function call, this is return point
-D=A 
-@gc_OUTPUT_09_RETURN
-M=D 
-@gc_OUTPUT_09
-0;JMP
-
-(gc_CONDITION1_NEXT)
-@gc_LOOP_START
-D=A
-@ks_addBuf_hlt
-M=D
-@ks_addBuf          // after function call, restart loop to get the next key
-0;JMP
-
-
-// 2) If current key = backspace AND enteredBits > 0, then remove last input
-(gc_CONDITION2)
-@gc_CONDITION2_MET              // if 0BIT_CHECK is false, then backspace is permitted
-D=A                             // so prepare jump to next steps on return from function call
-@gc_0BIT_CHECK_FALSE_RETURN     
-M=D 
-
-@gc_LOOP_START                  // if 0BIT_CHECK is true, then backspace is not permitted
-D=A                             // so jump back to loop start and wait for next key
-@gc_0BIT_CHECK_TRUE_RETURN
-M=D 
-
-@129                // ASCII value for backspace
-D=A 
-@gc_currKey
-D=M-D               // currKey value - backspace ASCII value 
-@gc_0BIT_CHECK
-D;JEQ               // if currKey is backspace, then jump to 0BIT_CHECK and let the function handle where to jump back to
-@gc_CONDITION3      // otherwise it is not backspace so jump to next condition check
-0;JMP
-
-(gc_CONDITION2_MET)
-@gc_LOOP_START          //access the next sequential label
-D=A                     //store the label itself in D
-@cc_delBuffer_return    //access the delete buffer return variable
-M=D                     //store the label in the variable
-@cc_DEL_BUFFER          //access the delete buffer function label
-0;JMP                   //jump there unconditionally
-
-
-// 3) If current key = c, then clear whole buffer
-(gc_CONDITION3)
-@gc_CONDITION3_CALL_CLEARBUF    // if 0BIT_CHECK is false, then clearbuf needs to be called
-D=A                             // so prepare jump to call it on return from function call
-@gc_0BIT_CHECK_FALSE_RETURN     
-M=D 
-
-@gc_LOOP_START                  // if 0BIT_CHECK is true, then buffer is already empty so 
-D=A                             // clearbuf doesnt need to be called, jump straight to loop start
-@gc_0BIT_CHECK_TRUE_RETURN
-M=D 
-
-@67                 // ASCII value for c
-D=A 
-@gc_currKey
-D=M-D               // currKey value - c ASCII value 
-@gc_0BIT_CHECK
-D;JEQ               // if currKey is c, then jump to 0 bit check and let it handle where to jump control back to
-@gc_CONDITION4      // otherwise it is not c so jump to next condition check
-0;JMP
-
-(gc_CONDITION3_CALL_CLEARBUF)
-@gc_LOOP_START          //access the next sequential label
-D=A                     //store the label itself in D
-@cc_clrBuffer_return    //access the clear buffer return variable
-M=D                     //store the label in the variable
-@cc_CLEAR_BUFFER        //access the clear buffer function
-0;JMP                   //jump there unconditionally
-
-
-// 4) If current key = q, then clear whole buffer AND terminate program
-(gc_CONDITION4)
-@gc_CONDITION4_CALL_CLEARBUF    // if 0BIT_CHECK is false, then clearbuf needs to be called
-D=A                             // so prepare jump to call it on return from function call
-@gc_0BIT_CHECK_FALSE_RETURN     
-M=D 
-
-@END                            // if 0BIT_CHECK is true, then buffer is already empty so 
-D=A                             // clearbuf doesnt need to be called, jump straight to terminate program
-@gc_0BIT_CHECK_TRUE_RETURN
-M=D 
-
-@81                // ASCII value for q
-D=A 
-@gc_currKey
-D=M-D               // currKey value - q ASCII value 
-@gc_0BIT_CHECK
-D;JEQ               // if currKey is q, then do next steps
-@gc_CONDITION5      // otherwise it is not q so jump to next condition check
-0;JMP
-
-(gc_CONDITION4_CALL_CLEARBUF)
-@END                    //access the next sequential label
-D=A                     //store the label itself in D
-@cc_clrBuffer_return    //access the clear buffer return variable
-M=D                     //store the label in the variable
-@cc_CLEAR_BUFFER        //access the clear buffer function
-0;JMP                   //jump there unconditionally
-
-
-// 5) If current key = enter AND exactly 16 bits entered, then process buffer
-(gc_CONDITION5)
-@128                // ASCII value for enter
-D=A 
-@gc_currKey
-D=M-D               // currKey value - enter ASCII value 
-@16BIT_CHECK
-D;JEQ               // if currKey is enter, then jump to 16 bit check
-@gc_LOOP_START      // otherwise it is not enter so restart loop
-0;JMP
-
-(16BIT_CHECK)
-@16
-D=A 
-@gc_bitsEntered
-D=M-D                   // bitsEntered - 16
-@gc_CONDITION5_MET
-D;JEQ                   // if bitsEntered - 16 = 0 is true, then do the next steps
-@gc_LOOP_START          
-0;JMP                   // otherwise its false so restart loop
-
-(gc_CONDITION5_MET)
-@gc_PROCESS_LOOP        // Jump to helper function that begins processing
-0;JMP
-
-(END)
-@END
-0;JMP
-//************************* "END MAIN" *************************************
-
-
-
-
-
-//************************* "gc_PROCESS_LOOP" *************************************
-// 1) Call processBuf and then output to display
-(gc_PROCESS_LOOP)
-@gc_DISPLAY_DECIMAL         // set return address
-D=A 
-@ks_conv_return
-M=D
-@ks_conv16b                 // jump to processBuf function
-0;JMP
-
-(gc_DISPLAY_DECIMAL)
-@ks_convRet              // copy over decimal value received into parameter for output decimal function
-D=M 
-@gc_dec_digit
-M=D 
-
-@gc_PROCESS_LOOP_NEXT       // set return address
-D=A
-@gc_OUTPUT_DECIMAL_RETURN 
-M=D 
-@gc_OUTPUT_DECIMAL          // jump to display
-0;JMP
-
-// 2) Get next key
-(gc_PROCESS_LOOP_NEXT)
-@gc_PROCESS_LOOP_KEY_RETURN   // set return address for jm_getKey
-D=A
-@jm_getKey_return
-M=D
-@jm_getKey
-0;JMP
-
-
-// 3) If current key = c or enter, then clear whole buffer
-(gc_PROCESS_LOOP_KEY_RETURN)
-@gc_currKey     // store returned key value
-M=D
-
-@gc_PL_CALL_CLEARBUF    // if 0BIT_CHECK is false, then clearbuf needs to be called
-D=A                             // so prepare jump to call it on return from function call
-@gc_0BIT_CHECK_FALSE_RETURN     
-M=D 
-
-@gc_RESTART                  // if 0BIT_CHECK is true, then buffer is already empty so 
-D=A                             // clearbuf doesnt need to be called, jump straight to restart
-@gc_0BIT_CHECK_TRUE_RETURN
-M=D 
-
-@67                 // ASCII value for c
-D=A 
-@gc_currKey
-D=M-D               // currKey value - c ASCII value 
-@gc_0BIT_CHECK
-D;JEQ               // if currKey is c, then jump to 0 bit check and let it handle where to jump control back to
-
-@128                 // ASCII value for c
-D=A 
-@gc_currKey
-D=M-D               // currKey value - c ASCII value 
-@gc_0BIT_CHECK
-D;JEQ               // if currKey is c, then jump to 0 bit check and let it handle where to jump control back to
-
-@gc_TERMINATE       // otherwise it is not c so jump to next condition check
-0;JMP
-
-(gc_PL_CALL_CLEARBUF)
-@gc_RESTART             //access the next sequential label
-D=A                     //store the label itself in D
-@cc_clrBuffer_return    //access the clear buffer return variable
-M=D                     //store the label in the variable
-@cc_CLEAR_BUFFER        //access the clear buffer function
-0;JMP                   //jump there unconditionally
-
-
-// 4) If current key = q, then clear whole buffer AND terminate program
-(gc_TERMINATE)
-@gc_CLEAR_TERMINATE             // if 0BIT_CHECK is false, then clearbuf needs to be called
-D=A                             // so prepare jump to call it on return from function call
-@gc_0BIT_CHECK_FALSE_RETURN     
-M=D 
-
-@END                            // if 0BIT_CHECK is true, then buffer is already empty so 
-D=A                             // clearbuf doesnt need to be called, jump straight to terminate program
-@gc_0BIT_CHECK_TRUE_RETURN
-M=D 
-
-@81                // ASCII value for q
-D=A 
-@gc_currKey
-D=M-D               // currKey value - q ASCII value 
-@gc_0BIT_CHECK
-D;JEQ                       // if currKey is q, then do next steps
-@gc_PROCESS_LOOP_NEXT      // otherwise it is not q so get key again
-0;JMP
-
-(gc_CLEAR_TERMINATE)
-@END                    //access the next sequential label
-D=A                     //store the label itself in D
-@cc_clrBuffer_return    //access the clear buffer return variable
-M=D                     //store the label in the variable
-@cc_CLEAR_BUFFER        //access the clear buffer function
-0;JMP                   //jump there unconditionally
-
-
-
-
-
-// Performs raw conversion logic (sum of product expansion) using Mult and Pow functions
-// R0-R15 store the bits to convert in big-endian order (R0 = most significant bit)
-// If R0 is 1, then we start counting at -32768, otherwise we start counting at 0
-// We need to store the -32768 in 4 steps: @R0, D=A, @32768, D=D-A, because we can't directly @ a negative address
-// In addition, we can't use any R0-R15 registers to perform any logic; we need to use variables to store anything that isn't a bit
-// Store the result in ks_convRet, use ks_conv_i for the index, ks_conv_sum for the accumulator, and other ks_conv_* variables as needed
-(ks_conv16b)
-    // Special case: highest negative value detected
-    @R0
-    D=M
-    @KS_MOST_NEGATIVE
-    M=D
-    M=1;JEQ
-
-    // Initialize sum to 0
-    @ks_conv_sum
-    M=0
-
-    // Initialize index
-    @ks_conv_i
-    M=0
-    (ks_conv_loop)
-        // for (i = 0; i < 16; ++i) and make sure we're starting from 0 and incrementing, NOT the other way around
-
-        // Initialize incrementing (emphasis on incrementing) loop counter
-        @ks_conv_i
-        D=A
-        @ks_conv_tmp
-        M=D
-
-        // Set exponent = 15 - i
-        @R15
-        D=A
-        @ks_conv_tmp
-        D=D-M
-        @ks_conv_exp
-        M=D
-
-        // Get register address from ks_conv_tmp
-        @ks_conv_tmp
-        D=M
-        
-        // Load bit value from R[i]
-        @ks_conv_i
-        A=D+M
-        D=M
-
-        // Store into ks_conv_bitValue
-        @ks_conv_bitValue
-        M=D
-
-        // Compute contribution: sum = bitValue + 2^(15 - i)
-        // If bit is 0 then we're just adding 0 anyway, which is a no-op, so no need to check for that
-
-        // Load address of R2 (which is always 2) into the base (which is the arbitrary variable name of R103 in our case)
-        @R2
-        D=A
-        @R103
-        M=D
-
-        // Load exponent into R104
-        @ks_conv_exp
-        D=M
-        @R104
-        M=D
-
-        // Call Pow subroutine
-        @ks_Pow
-
-        // Retrieve Pow result
-        @ks_Pow_return
-        D=M
-
-        // Add to the sum (again, if bit is 0 then we're calculating 2^(15 - i) + 0, which is just 2^(15 - i) anyway)
-        @ks_conv_sum
-        M=D+M
-
-        // Increment index
-        @ks_conv_i
-        A=A+1
-
-        // Check loop condition (note that ks_conv_exp is just ks_conv_i inverted, making this, in theory, equivalent to i < 16)
-        @ks_conv_exp
-        D=M
-        @ks_conv_loop
-        0;JGT
-
-        // Store final result in ks_convRet
-        @ks_conv_sum
-        D=M
-        @ks_convRet
-        M=D
-        @24000
-        M=D
-
-        @ks_conv_return
-        A=M
-        0;JMP
-
-
-
-
-
-//************************* "cc_DEL_BUFFER" *************************************
-//after backspace is pressed, and if bits entered is more than 0
-//deletes the previous bit entered from the user display and decrements
-//the bits entered to reflect that change
-(cc_DEL_BUFFER)
-@gc_bitsEntered       //go to the amount of bits entered
-D=M                   //store the variable's stored value in D
-@cc_DEL_END           //access the end of this function
-D;JEQ                 //jump to the end of the function if bits entered is 0
-@ge_currentColumn     //get the current column
-M=M-1                 //decrement by 1 to previous bit
-@cc_CONTINUE_DEL      //set return
-D=A                   //put the return in D
-@ge_output_return     //access the output function return
-M=D                   //put the return in the output function return
-@ge_output_s          //access the space output function
-0;JMP                 //jump there unconditionally
-
-(cc_CONTINUE_DEL) 
-@gc_bitsEntered       //access the bits entered again
-M=M-1                 //decrement the amount stored by 1
-A=M                   //access this previously entered bit
-M=0                   //clear this bit
-
-(cc_DEL_END)
-@cc_delBuffer_return  //access the return for this function
-A=M                   //set the address to the stored return
-0;JMP                 //jump there unconditionally
-
-
-
-
-
-//************************* "cc_CLEAR_BUFFER" *************************************
-//after c is pressed, and if bits entered is more than 0
-//takes the current amount of bits entered as a loop control
-//and calls the delete buffer function that many times
-//which resets bits entered to 0, gradually, to reflect the change
-(cc_CLEAR_BUFFER)
-@gc_bitsEntered       //go to the amount of bits entered
-D=M                   //store the variable's stored value in D
-@cc_CLEAR_END         //access the end of this function
-D;JEQ                 //jump to the end of the function if bits entered is 0
-@cc_bitsToClear       //create a variable tracking how many bits need clearing
-M=D                   //store current bits entered there
-
-(cc_CLEAR_LOOP)
-@cc_bitsToClear       //access bits to clear
-D=M                   //store its value in D
-@cc_CLEAR_END         //access the end of this function
-D;JEQ                 //jump when bits to clear is 0
-
-@cc_DEL_RETURN        //access the delete function return
-D=A                   //store this in D         
-@cc_delBuffer_return  //access the return variable
-M=D                   //store the function return in the return variable
-@cc_DEL_BUFFER        //access the delete buffer function
-0;JMP                 //jump there unconditionally
-
-(cc_DEL_RETURN)
-@cc_bitsToClear       //access bits to clear
-M=M-1                 //decrement bits to clear
-@cc_CLEAR_LOOP        //access the start of the loop
-0;JMP                 //jump there unconditionally
-
-(cc_CLEAR_END)
-@cc_clrBuffer_return  //access the return for this function
-A=M                   //set the address to the stored return
-0;JMP                 //jump there unconditionally
-
-
-
-
-
-//************************* "ks_addBuf" *************************************
-//DESCRIPTION: Adds 0 or 1 to buffer
-//INPUT: gc_currKey holds the value of either 0 or 1
-//OUTPUT: the bit has been entered into the buffer
-(ks_addBuf)
-    // Load current bit from gc_currKey
+    @jm_getKey
+    0;JMP
+
+(jm_getKeyReturn) 
+    @gc_currKey     
+    M=D             
+
+    // --- GLOBAL CHECKS (c and q) ---
+    // Check for 'q' (Quit)
+    @81             // 'q'
+    D=A
+    @gc_currKey
+    D=M-D
+    @cc_QUIT_CLEAR_LOOP   // <--- CHANGED: Go to clear routine
+    D;JEQ
+
+    // Check for 'c' (Clear)
+    @67             // 'c'
+    D=A
+    @gc_currKey
+    D=M-D
+    @cc_FULL_RESET
+    D;JEQ
+
+    // --- INPUT CHECKS ---
+    // Check for 'Enter' (128)
+    @128
+    D=A
+    @gc_currKey
+    D=M-D
+    @gc_CHECK_PROCESS
+    D;JEQ
+
+    // Check for 'Backspace' (129)
+    @129
+    D=A
+    @gc_currKey
+    D=M-D
+    @cc_DEL_BUFFER_BTN
+    D;JEQ
+
+    // --- DIGIT ENTRY (0 or 1) ---
+    // Check if we have room (max 16 bits)
+    @16
+    D=A
+    @gc_bitsEntered
+    D=M-D
+    @gc_LOOP_START
+    D;JGE           // If bitsEntered >= 16, ignore digit input
+
+    // Check if key is 0 or 1
     @gc_currKey
     D=M
+    @ks_addBuf      // If key is 0 (literal), add it
+    D;JEQ
+    D=D-1
+    @ks_addBuf      // If key is 1 (literal), add it
+    D;JEQ
 
-    // Store bit into R[gc_bitsEntered]
+    // If key is neither 0, 1, Enter, BS, c, or q -> Ignore
+    @gc_LOOP_START
+    0;JMP
+
+// Check if we can process (must have exactly 16 bits)
+(gc_CHECK_PROCESS)
+    @16
+    D=A
     @gc_bitsEntered
-    A=M // R[gc_bitsEntered]
+    D=M-D
+    @gc_LOOP_START   // If bitsEntered != 16, ignore Enter
+    D;JNE
+    
+    // Process the buffer
+    @gc_PROCESS_LOOP
+    0;JMP
+
+(END)
+    @END
+    0;JMP
+
+
+//************************* "PROCESS & DISPLAY" *************************************
+// Description: Converts the 16-bit binary buffer to decimal and displays the result.
+//              Handles sign detection, special case for -32768, and prints arrow separator.
+// Input: R0-R15 containing the 16 binary bits entered by user
+// Output: Displays "->" followed by signed decimal value on screen
+(gc_PROCESS_LOOP)
+    // 1. Convert Binary to Integer (Result in ks_convRet)
+    @ks_conv16b
+    0;JMP
+
+(gc_DISPLAY_START)
+    // 2. Output Arrow "->"
+    @gc_PRINT_ARROW_RET
+    D=A
+    @ge_output_return
     M=D
-
-    // Increment gc_bitsEntered by 1 after having stored the bit
-    @gc_bitsEntered
+    @ge_output_-
+    0;JMP
+(gc_PRINT_ARROW_RET)
+    @ge_currentColumn
+    M=M+1
+    @gc_PRINT_ARROW_RET2
+    D=A
+    @ge_output_return
+    M=D
+    @ge_output_g
+    0;JMP
+(gc_PRINT_ARROW_RET2)
+    @ge_currentColumn
     M=M+1
 
-    // Exit function; this is only called when the a key is pressed
-    @ks_addBuf_hlt
+    // 3. Check Special Case (-32768)
+    // -32768 is 1000...000. 
+    // Logic: If (32767 + 1) - ks_convRet == 0
+    @32767
+    D=A
+    D=D+1           // D = -32768
+    @ks_convRet
+    D=D-M
+    @gc_SPECIAL_MIN_INT
+    D;JEQ
+
+    // 4. Check Sign
+    @ks_convRet
+    D=M
+    @gc_IS_NEG
+    D;JLT
+
+    // POSITIVE: Print '+' and setup positive number
+    @gc_PRINT_PLUS_RET
+    D=A
+    @ge_output_return
+    M=D
+    @ge_output_+
+    0;JMP
+(gc_PRINT_PLUS_RET)
+    @ge_currentColumn
+    M=M+1
+    @ks_convRet
+    D=M
+    @gc_dec_digit
+    M=D             // Store positive number for extraction
+    @gc_EXTRACT_DIGITS
+    0;JMP
+
+    // NEGATIVE: Print '-' and negate number
+(gc_IS_NEG)
+    @gc_PRINT_MINUS_RET
+    D=A
+    @ge_output_return
+    M=D
+    @ge_output_-
+    0;JMP
+(gc_PRINT_MINUS_RET)
+    @ge_currentColumn
+    M=M+1
+    @ks_convRet
+    D=M
+    M=-D            // Negate to make positive
+    @gc_dec_digit
+    M=M             // Store positive magnitude
+    @gc_EXTRACT_DIGITS
+    0;JMP
+
+
+//************************* "DIGIT EXTRACTION" *************************************
+// Description: Extracts individual decimal digits from the converted integer value.
+//              Uses repeated division by 10 to isolate digits, stores them in RAM[2000+],
+//              then prints them in reverse order (most significant first).
+// Input: gc_dec_digit containing the positive magnitude of the number to display
+// Output: Prints decimal digits to screen, increments ge_currentColumn for each digit
+(gc_EXTRACT_DIGITS)
+    // Setup array at RAM[2000] to store digits
+    @2000
+    D=A
+    @gc_arrBase
+    M=D
+    @gc_arrIdx
+    M=0
+
+    @gc_dec_digit
+    D=M
+    
+    // Handle '0' case explicitly
+    @gc_HANDLE_ZERO
+    D;JEQ
+
+    // Save number to temporary variable for division loop
+    @gc_numHold
+    M=D
+
+(gc_EXTRACT_LOOP)
+    @gc_numHold
+    D=M
+    @gc_EXTRACT_PRINT_START
+    D;JEQ       // If numHold is 0, we are done dividing
+
+    // Prepare Div: R100 = numHold, R101 = 10
+    @gc_numHold
+    D=M
+    @R100
+    M=D         // Dividend
+    @10
+    D=A
+    @R101
+    M=D         // Divisor
+
+    // Call Div
+    @gc_DIV_RET
+    D=A
+    @ks_Div_return
+    M=D
+    @ks_Div
+    0;JMP
+
+(gc_DIV_RET)
+    // R102 = Quotient, R103 = Remainder
+    
+    // Update numHold = Quotient
+    @R102
+    D=M
+    @gc_numHold
+    M=D
+    
+    // Store Remainder into RAM[2000 + gc_arrIdx]
+    @gc_arrBase
+    D=M
+    @gc_arrIdx
+    D=D+M       // D = Address (2000 + i)
+    @gc_tempAddr
+    M=D
+    
+    @R103
+    D=M         // The digit (0-9)
+    @gc_tempAddr
+    A=M
+    M=D         // Store it
+
+    // Increment Index
+    @gc_arrIdx
+    M=M+1
+    
+    @gc_EXTRACT_LOOP
+    0;JMP
+
+// Print the digits we stored (Reverse Order)
+(gc_EXTRACT_PRINT_START)
+    // gc_arrIdx currently points 1 PAST the last digit. Decrement first.
+    @gc_arrIdx
+    M=M-1
+
+(gc_EXTRACT_PRINT_LOOP)
+    @gc_arrIdx
+    D=M
+    @gc_WAIT_ENTER
+    D;JLT       // If index < 0, we are done printing
+
+    // Load digit from RAM[2000 + idx]
+    @gc_arrBase
+    D=M
+    @gc_arrIdx
+    A=D+M
+    D=M         // D now holds the digit (0-9)
+
+    @gc_currKey
+    M=D         // Set up for output function
+
+    // Call Output
+    @gc_PRINT_DIG_RET
+    D=A
+    @gc_OUTPUT_09_RETURN
+    M=D
+    @gc_OUTPUT_09
+    0;JMP
+
+(gc_PRINT_DIG_RET)
+    @gc_arrIdx
+    M=M-1       // Move to next digit (backwards)
+    @gc_EXTRACT_PRINT_LOOP
+    0;JMP
+
+(gc_HANDLE_ZERO)
+    @gc_Z_RET
+    D=A
+    @ge_output_return
+    M=D
+    @ge_output_0
+    0;JMP
+(gc_Z_RET)
+    @ge_currentColumn
+    M=M+1
+    @gc_WAIT_ENTER
+    0;JMP
+
+
+//************************* "WAIT FOR ENTER (RESET)" *************************************
+// Description: Waits for user keypress after displaying the decimal result.
+//              Handles Enter/c (restart), q (quit), ignores other keys.
+// Input: Keyboard input from user
+// Output: Jumps to cc_FULL_RESET on Enter/c, cc_QUIT_CLEAR_LOOP on q
+(gc_WAIT_ENTER)
+    // Loop until key is pressed
+    @KBD
+    D=M
+    @gc_WAIT_ENTER
+    D;JEQ
+
+    @gc_tempKey
+    M=D
+
+    // Debounce: Wait for release
+(gc_WAIT_RELEASE)
+    @KBD
+    D=M
+    @gc_WAIT_RELEASE
+    D;JNE
+
+    // Process Key
+    @gc_tempKey
+    D=M
+
+    // Check 'Enter' (128) -> Restart (Clear screen/buffers)
+    @128
+    D=D-A
+    @cc_FULL_RESET
+    D;JEQ
+
+    // Check 'c' (67) -> Restart
+    @gc_tempKey
+    D=M
+    @67
+    D=D-A
+    @cc_FULL_RESET
+    D;JEQ
+
+    // Check 'q' (81) -> Quit
+    @gc_tempKey
+    D=M
+    @81
+    D=D-A
+    @cc_QUIT_CLEAR_LOOP   // <--- CHANGED: Go to clear routine
+    D;JEQ
+
+    // Ignore all other keys
+    @gc_WAIT_ENTER
+    0;JMP
+
+
+//************************* "HARDCODED SPECIAL CASE (-32768)" *************************************
+// Description: Handles the special case of -32768 which cannot be negated in 16-bit two's complement.
+//              Manually prints "-32768" character by character.
+// Input: None (called when ks_convRet equals -32768)
+// Output: Prints "-32768" to screen, then jumps to gc_WAIT_ENTER
+(gc_SPECIAL_MIN_INT)
+    // Print -32768 manually
+    @gc_SM_RET
+    D=A
+    @ge_output_return
+    M=D
+    @ge_output_-
+    0;JMP
+(gc_SM_RET)
+    @ge_currentColumn
+    M=M+1
+    
+    // 3
+    @gc_S3_RET
+    D=A
+    @ge_output_return
+    M=D
+    @ge_output_3
+    0;JMP
+(gc_S3_RET)
+    @ge_currentColumn
+    M=M+1
+
+    // 2
+    @gc_S2_RET
+    D=A
+    @ge_output_return
+    M=D
+    @ge_output_2
+    0;JMP
+(gc_S2_RET)
+    @ge_currentColumn
+    M=M+1
+
+    // 7
+    @gc_S7_RET
+    D=A
+    @ge_output_return
+    M=D
+    @ge_output_7
+    0;JMP
+(gc_S7_RET)
+    @ge_currentColumn
+    M=M+1
+
+    // 6
+    @gc_S6_RET
+    D=A
+    @ge_output_return
+    M=D
+    @ge_output_6
+    0;JMP
+(gc_S6_RET)
+    @ge_currentColumn
+    M=M+1
+
+    // 8
+    @gc_S8_RET
+    D=A
+    @ge_output_return
+    M=D
+    @ge_output_8
+    0;JMP
+(gc_S8_RET)
+    @ge_currentColumn
+    M=M+1
+
+    @gc_WAIT_ENTER
+    0;JMP
+
+
+//************************* "CONVERSION LOGIC" *************************************
+// Description: Converts 16 binary bits stored in R0-R15 to a signed 16-bit integer.
+//              Uses shift-and-add algorithm: result = result*2 + bit[i] for each bit.
+// Input: R0-R15 containing binary bits (R0 = MSB, R15 = LSB)
+// Output: ks_convRet contains the signed 16-bit integer result (-32768 to 32767)
+(ks_conv16b)
+    @ks_convRet
+    M=0
+    @0
+    D=A
+    @ks_conv_i
+    M=D
+
+(ks_CONV_LOOP)
+    @ks_conv_i
+    D=M
+    @16
+    D=D-A
+    @ks_CONV_DONE
+    D;JEQ
+
+    // Shift Left (Result = Result * 2)
+    @ks_convRet
+    D=M
+    M=D+M
+
+    // Add Bit from RAM[R0 + i]
+    @ks_conv_i
+    D=M
+    @R0
+    A=A+D
+    D=M
+    @ks_convRet
+    M=M+D
+
+    @ks_conv_i
+    M=M+1
+    @ks_CONV_LOOP
+    0;JMP
+
+(ks_CONV_DONE)
+    @gc_DISPLAY_START
+    0;JMP
+
+
+//************************* "BUFFER & RESET LOGIC" *************************************
+// Description: Handles adding bits to buffer, deleting bits (backspace), and full reset operations.
+//              ks_addBuf: Displays digit and stores in R0-R15 buffer
+//              cc_DEL_BUFFER: Removes last entered bit and clears from display
+//              cc_FULL_RESET: Clears entire display and resets all R0-R15 registers
+//              cc_QUIT_CLEAR_LOOP: Clears display then terminates program
+// Input: gc_currKey (for addBuf), gc_bitsEntered, ge_currentColumn
+// Output: Updates R0-R15 buffer, gc_bitsEntered, ge_currentColumn, screen display
+// Add 0 or 1
+(ks_addBuf)
+    @gc_currKey
+    D=M
+    // Temporarily set return for output function
+    @ks_addBuf_Store
+    D=A
+    @gc_OUTPUT_09_RETURN
+    M=D
+    @gc_OUTPUT_09
+    0;JMP
+
+(ks_addBuf_Store)
+    @gc_bitsEntered
+    D=M
+    @R0
+    D=A+D       // Address = R0 + bitsEntered
+    @gc_addrTemp
+    M=D
+    @gc_currKey
+    D=M
+    @gc_addrTemp
+    A=M
+    M=D         // Store in Memory
+    @gc_bitsEntered
+    M=M+1
+    @gc_LOOP_START
+    0;JMP
+
+// Backspace Entry Point from Button (Only for Input correction)
+(cc_DEL_BUFFER_BTN)
+    // Setup return address to Main Loop
+    @gc_LOOP_START
+    D=A
+    @cc_delBuffer_return
+    M=D
+    @cc_DEL_BUFFER_EXEC
+    0;JMP
+
+// Backspace Execution Logic (Deletes 1 Bit and 1 Char)
+(cc_DEL_BUFFER_EXEC)
+    @gc_bitsEntered
+    D=M
+    @cc_DEL_EXIT
+    D;JEQ       // If 0 bits, cannot delete
+
+    // Decrement Count
+    @gc_bitsEntered
+    M=M-1
+
+    // Clear Memory
+    D=M
+    @R0
+    A=A+D
+    M=0
+
+    // Visual Backspace
+    @ge_currentColumn
+    M=M-1       // Move cursor back
+
+    // Print Space over the character
+    @cc_DEL_EXIT
+    D=A
+    @ge_output_return
+    M=D
+    @ge_output_s
+    0;JMP
+
+(cc_DEL_EXIT)
+    // Jump to the stored return address
+    @cc_delBuffer_return
+    A=M
+    0;JMP
+
+// ***************** FULL RESET FUNCTION *****************
+// Clears visual line AND clears all memory registers R0-R15
+(cc_FULL_RESET)
+
+    // 1. VISUAL CLEAR LOOP
+    // Keeps backspacing until ge_currentColumn is 0
+(cc_VISUAL_CLEAR_LOOP)
+    @ge_currentColumn
+    D=M
+    @cc_MEM_CLEAR_INIT
+    D;JEQ       // If Col=0, visual is clear
+
+    @ge_currentColumn
+    M=M-1       // Back up 1
+    
+    // Draw Space
+    @cc_VCL_RET
+    D=A
+    @ge_output_return
+    M=D
+    @ge_output_s
+    0;JMP
+
+(cc_VCL_RET)
+    @cc_VISUAL_CLEAR_LOOP
+    0;JMP
+
+    // 2. MEMORY CLEAR LOOP (HARD RESET)
+    // Initializes a counter to 16 and clears R0 through R15 explicitly
+(cc_MEM_CLEAR_INIT)
+    @16
+    D=A
+    @gc_clrIdx
+    M=D
+
+(cc_MEM_CLEAR_LOOP)
+    @gc_clrIdx
+    D=M
+    @cc_RESET_DONE
+    D;JEQ
+    
+    @gc_clrIdx
+    M=M-1       // 16 -> 15
+    D=M         // D=15
+    @R0
+    A=A+D       // Address = R0 + 15
+    M=0         // Clear Bit
+    
+    @cc_MEM_CLEAR_LOOP
+    0;JMP
+
+(cc_RESET_DONE)
+    @gc_RESTART
+    0;JMP
+
+// ***************** QUIT CLEAR LOOP (NEW) *****************
+// Clears visual line then goes to END
+(cc_QUIT_CLEAR_LOOP)
+    @ge_currentColumn
+    D=M
+    @END
+    D;JEQ       // If Col=0, visual is clear, go to END
+
+    @ge_currentColumn
+    M=M-1       // Back up 1
+    
+    // Draw Space
+    @cc_QCL_RET
+    D=A
+    @ge_output_return
+    M=D
+    @ge_output_s
+    0;JMP
+
+(cc_QCL_RET)
+    @cc_QUIT_CLEAR_LOOP
+    0;JMP
+
+
+//************************* "INPUT ROUTINE" *************************************
+// Description: Reads keyboard input and waits for a valid key press with debouncing.
+//              Converts ASCII '0' (48) and '1' (49) to literal values 0 and 1.
+//              Other valid keys (c, q, Enter, Backspace) are passed through as ASCII.
+// Input: User keyboard input from KBD memory-mapped register
+// Output: D register contains key value (0, 1, or ASCII code), returns to jm_getKeyReturn
+(jm_getKey)                 
+(jm_getKey_waitPress)       
+    @KBD                        
+    D=M                         
+    @jm_getKey_waitPress        
+    D;JEQ                       
+    @jm_keyTemp                 
+    M=D                         
+    @48
+    D=D-A
+    @jm_key0
+    D;JEQ
+    @jm_keyTemp
+    D=M
+    @49
+    D=D-A
+    @jm_key1
+    D;JEQ
+    @jm_validKey
+    0;JMP
+(jm_key0)                   
+    @jm_keyTemp                 
+    M=0                         
+    @jm_validKey                
+    0;JMP
+(jm_key1)                   
+    @jm_keyTemp                 
+    M=1                         
+    @jm_validKey                
+    0;JMP
+(jm_validKey)               
+    @jm_getKey_afterDebounce    
+    D=A                         
+    @jm_keyDebounce_return      
+    M=D                         
+    @jm_keyDebounce             
+    0;JMP
+(jm_getKey_afterDebounce)   
+    @jm_keyTemp                 
+    D=M                         
+    @jm_getKeyReturn            
+    0;JMP
+(jm_keyDebounce)
+    @KBD                         
+    D=M                           
+    @jm_keyDebounce              
+    D;JNE                        
+    @jm_keyDebounce_return       
+    A=M                          
+    0;JMP                        
+
+
+//************************* "OUTPUT SUBROUTINE" *************************************
+// Description: Dispatches to the correct digit output routine based on gc_currKey value (0-9).
+//              Calls the appropriate ge_output_X function and increments column position.
+// Input: gc_currKey containing digit value 0-9, gc_OUTPUT_09_RETURN containing return address
+// Output: Displays digit at current column, increments ge_currentColumn, returns via gc_OUTPUT_09_RETURN
+(gc_OUTPUT_09)
+    @gc_currKey
+    D=M
+    @gc_D0
+    D;JEQ
+    D=D-1
+    @gc_D1
+    D;JEQ
+    D=D-1
+    @gc_D2
+    D;JEQ
+    D=D-1
+    @gc_D3
+    D;JEQ
+    D=D-1
+    @gc_D4
+    D;JEQ
+    D=D-1
+    @gc_D5
+    D;JEQ
+    D=D-1
+    @gc_D6
+    D;JEQ
+    D=D-1
+    @gc_D7
+    D;JEQ
+    D=D-1
+    @gc_D8
+    D;JEQ
+    D=D-1
+    @gc_D9
+    D;JEQ
+    @gc_OUTPUT_09_RETURN
+    A=M
+    0;JMP
+
+(gc_D0)
+    @gc_DX_RET
+    D=A
+    @ge_output_return
+    M=D
+    @ge_output_0
+    0;JMP
+(gc_D1)
+    @gc_DX_RET
+    D=A
+    @ge_output_return
+    M=D
+    @ge_output_1
+    0;JMP
+(gc_D2)
+    @gc_DX_RET
+    D=A
+    @ge_output_return
+    M=D
+    @ge_output_2
+    0;JMP
+(gc_D3)
+    @gc_DX_RET
+    D=A
+    @ge_output_return
+    M=D
+    @ge_output_3
+    0;JMP
+(gc_D4)
+    @gc_DX_RET
+    D=A
+    @ge_output_return
+    M=D
+    @ge_output_4
+    0;JMP
+(gc_D5)
+    @gc_DX_RET
+    D=A
+    @ge_output_return
+    M=D
+    @ge_output_5
+    0;JMP
+(gc_D6)
+    @gc_DX_RET
+    D=A
+    @ge_output_return
+    M=D
+    @ge_output_6
+    0;JMP
+(gc_D7)
+    @gc_DX_RET
+    D=A
+    @ge_output_return
+    M=D
+    @ge_output_7
+    0;JMP
+(gc_D8)
+    @gc_DX_RET
+    D=A
+    @ge_output_return
+    M=D
+    @ge_output_8
+    0;JMP
+(gc_D9)
+    @gc_DX_RET
+    D=A
+    @ge_output_return
+    M=D
+    @ge_output_9
+    0;JMP
+(gc_DX_RET)
+    @ge_currentColumn
+    M=M+1
+    @gc_OUTPUT_09_RETURN
     A=M
     0;JMP
 
 
-
-
-//************************* "jm_getKey" *************************************
-// Description: Reads ASCII data from keyboard 
-// Input: User keyboard input
-// Output: Output literal value for '0' and '1' OR ASCII value for keys 'c', 'q', 'enter', and 'backspace'
-(jm_getKey)                 // Primary loop that waits for a key press and debounces it
-(jm_getKey_waitPress)       // Secondary loop that waits for a key press
-
-// === Loads key press and stores in temp. variable ===
-@KBD                        // Stores keyboard input into A register
-D=M                         // Load RAM [A] ASCII value into D 
-@jm_getKey_waitPress        // Load jm_getKey_waitPress into A register
-D;JEQ                       // Loop back to (jm_getKey_waitPress) if no value detected in D (D = '0' / NULL)
-@jm_keyTemp                 // Loads temp. variable location into A register
-M=D                         // Stores the ASCII value of the key pressed into RAM [A]
-
-// === Check for '0' (48) ===
-@48                         // Loads 48 into A register
-D=D-A                       // Subtracts 48 from user inputted key value
-@jm_key0                    // Loads jm_key0 into A regsiter
-D;JEQ                       // Jumps to jm_key0 if D == 0
-
-// === Check for '1' (49) ===
-@jm_keyTemp                 // Reloads temp. variable location into A register
-D=M                         // Reloads the ASCII value of the key pressed into RAM [A]
-@49                         // Loads 49 into A register
-D=D-A                       // Subtracts 49 from user inputted key value
-@jm_key1                    // Loads jm_key1 into A regsiter
-D;JEQ                       // Jumps to jm_key1 if D == 0
-
-// === Check for 'backspace' (129) ===
-@jm_keyTemp                 // Reloads temp. variable location into A register
-D=M                         // Reloads the ASCII value of the key pressed into RAM [A]
-@129                        // Loads 129 into A register
-D=D-A                       // Subtracts 129 from user inputted key value
-@jm_validKey                // Loads jm_validKey into A regsiter
-D;JEQ                       // Jumps to jm_validKey if D == 0
-
-// === Check for 'enter' (128) ===
-@jm_keyTemp                 // Reloads temp. variable location into A register
-D=M                         // Reloads the ASCII value of the key pressed into RAM [A]
-@128                        // Loads 128 into A register
-D=D-A                       // Subtracts 128 from user inputted key value
-@jm_validKey                // Loads jm_validKey into A regsiter
-D;JEQ                       // Jumps to jm_validKey if D == 0
-
-// === Check for 'c' (67) ===
-@jm_keyTemp                 // Reloads temp. variable location into A register
-D=M                         // Reloads the ASCII value of the key pressed into RAM [A]
-@67                         // Loads 67 into A register
-D=D-A                       // Subtracts 67 from user inputted key value
-@jm_validKey                // Loads jm_validKey into A regsiter
-D;JEQ                       // Jumps to jm_validKey if D == 0
-
-// === Check for 'q' (81) ===
-@jm_keyTemp                 // Reloads temp. variable location into A register
-D=M                         // Reloads the ASCII value of the key pressed into RAM [A]
-@81                        // Loads 81 into A register
-D=D-A                       // Subtracts 81 from user inputted key value
-@jm_validKey                // Loads jm_validKey into A regsiter
-D;JEQ                       // Jumps to jm_validKey if D == 0
-
-// === Invalid Key Inputted ===
-@jm_getKey                  // Loads jm_getKey into A register
-D=A                         // Loads jm_getKey address into D register
-@jm_keyDebounce_return      // Loads jm_keyDebounce_return into A register
-M=D                         // Stores jm_getKey location into jm_keyDebounce_return RAM location
-@jm_keyDebounce             // Waits here until key is released
-0;JMP 
-
-// === Conversion Handlers ===
-(jm_key0)                   // Converts ASCII '0' (48) to literal '0'
-@jm_keyTemp                 // Loads temp. variable location into A register
-M=0                         // Overrides literal 0 value into jm_keyTemp RAM location
-@jm_validKey                // Loads jm_validKey into A regsiter
-0;JMP
-
-(jm_key1)                   // Converts ASCII '1' (49) to literal '1'
-@jm_keyTemp                 // Loads temp. variable location into A register
-M=1                         // Overrides literal 1 value into jm_keyTemp RAM location
-@jm_validKey                // Loads jm_validKey into A regsiter
-0;JMP
-
-// === Valid Key Inputted ===
-(jm_validKey)               // Proceeds to debounce the valid key inputted
-@jm_getKey_afterDebounce    // Loads jm_getKey_afterDebounce into A register
-D=A                         // Loads jm_getKey_afterDebounce address into D register
-@jm_keyDebounce_return      // Loads jm_keyDebounce_return into A register
-M=D                         // Stores jm_getKey_afterDebounce location into jm_keyDebounce_return's memory
-@jm_keyDebounce             // Jumps to jm_keyDebounce and waits here until key is released
-0;JMP
-
-// === After Debounce ===
-(jm_getKey_afterDebounce)   // After debounce, return the key value
-@jm_keyTemp                 // Loads temp. variable location into A register
-D=M                         // Loads the final key value into D register
-@jm_getKey_return           // Returns to caller-specified return address
-A=M
-0;JMP
-
-
-
-
-
-//************************* "jm_keyDebounce" *************************************
-// Description: Secondary loop that prevents input from being repeated from a held/multiple keyboard inputs
-// Input: User keyboard input
-// Output: Original KBD value from jm_getKey
-// === Loop debounce until key is released ===
-(jm_keyDebounce)
-@KBD                         // Stores keyboard input into A register
-D=M                          // Load RAM [A] ASCII value into D 
-@jm_keyDebounce              // Loads jm_keyDebounce into A register
-D;JGT                        // Loop back to (jm_keyDebounce) if a value is still detected in D (D != '0' / NULL)
-                             // AKA key has not been released yet
-
-// === Key Released, return to calling function ===
-@jm_keyDebounce_return       // Loads jm_keyDebounce_return into A register
-A=M                          // Loads the return address into A register
-0;JMP                        // Jumps to memory address stored from jm_getKey_afterDebounce
-
-
-
-
-
-
-//************************* "gc_OUTPUT_DECIMAL" *************************************
-// DESCRIPTION: takes an entire decimal value and prints it to the screen along with ->
-// INPUT: decimal value should be placed in gc_dec_digit
-// OUTPUT: entire decimal value is printed to the screen along with ->
-// 0) Output -> first
-@gc_PRINT_G
-D=A 
-@ge_output_return
-M=D
-@ge_output_-            // print -
-0;JMP
-
-(gc_PRINT_G)
-@ge_currentColumn
-M=M+1                   // increment current column since - just printed
-
-@gc_0CASE
-D=A 
-@ge_output_return
-M=D
-@ge_output_g            // print >
-0;JMP
-
-// 1) Check for special case: gc_dec_digit = 0
-// If true, then print 0 to display and terminate function call
-(gc_0CASE)
-@ge_currentColumn
-M=M+1                   // increment current column since > just printed
-
-@gc_dec_digit
-D=M
-@gc_OD_CHECKSIGN        
-D;JNE                   // if gc_dec_digit != 0, then jump to CHECKSIGN
-
-@END                    // otherwise gc_dec_digit = 0 so fall through and deal with it
-D=A 
-@ge_output_return       // set return address to end after function call
-M=D 
-@ge_output_0            // print 0 to display, then terminate function
-0;JMP
-
-
-// 2) Check if decimal is positive or negative and then print corresponding sign to screen
-(gc_OD_CHECKSIGN)
-@gc_dec_digit
-D=M 
-@gc_OD_NEG
-D;JLT                   // if gc_dec_digit < 0, then number is negative, jump and prepare to call output_-
-
-@gc_OD_EXTRACT           // else gc_dec_digit is positive, fall through and prepare to call output_+
-D=A 
-@ge_output_return       // set return address of function call to be next step, EXTRACT
-M=D 
-@ge_output_+            // call function and print + to screen
-0;JMP
-
-(gc_OD_NEG)             // gc_dec_digit is negative, first negate gc_dec_digit so - is not extracted in the next step
-@gc_dec_digit
-D=M
-@R0                     // R0 = gc_dec_digit
-M=D 
-@R1                     // R1 = -1
-M=-1
-
-// Use mult to negate gc_dec_digit
-@gc_OD_NEG_NEXT         // set return point
-D=A 
-@ks_Mult_return
-M=D
-@ks_Mult                // R0 * R1 = R2
-0;JMP
-
-(gc_OD_NEG_NEXT)
-@R2                     // move mult result back in to gc_dec_digit
-D=M
-@gc_dec_digit                // gc_dec_digit = gc_dec_digit * -1
-M=D 
-
-// Now print - to display
-@gc_OD_EXTRACT           
-D=A 
-@ge_output_return       // set return address of function call to be next step, EXTRACT
-M=D 
-@ge_output_-            // call function and print - to screen
-0;JMP
-
-
-// 3) Take decimal number and extract each number from each place value and store in reverse order in array
-// Needed to find out which output_X function to call for each place value
-(gc_OD_EXTRACT)
-@ge_currentColumn
-M=M+1               // increment since either + or - was just printed to the screen
-
-@50
-D=A
-@gc_numArr          // initialize numArr
-M=D
-
-// Place decimal number in new variable so original variable is not changed
-@gc_dec_digit 
-D=M
-@gc_numHold
-M=D 
-
-// Divide numHold by 10, place remainder in numArry, repeat until numHold = 0
-@gc_index
-M=0
-(gc_OD_EXTRACT_LOOP)
-@gc_numHold
-D=M
-@R0
-M=D             // R0 = numHold
-@10
-D=A 
-@R1
-M=D             // R1 = 10
-
-@gc_OD_EXTRACT_NEXT
-D=A 
-@ks_Div_return     // set div return address
-M=D 
-@ks_Div            // R0 / R1 = R2, remainder in R3
-0;JMP           // jump to Div function
-
-(gc_OD_EXTRACT_NEXT)
-@R2 
-D=M 
-@gc_numHold
-M=D             // numHold = numHold / 10
-
-@gc_numArr
-D=M             // D = base address (2500)
-@gc_index 
-D=D+M           // D = base address + index
-@gc_temp
-M=D             // gc_temp = address of numArr[index]
-@R3
-D=M             // D = remainder value
-@gc_temp
-A=M             
-M=D             // numArr[index] = remainder
-@gc_index
-M=M+1           // index++
-
-@gc_numHold
-D=M 
-@gc_OD_EXTRACT_LOOP
-D;JGT                   // restart loop if numHold > 0
-
-
-// 4) Traverse num array in reverse and print each decimal value located in each element to screen by calling relevent
-// output_X function
-(gc_OD_PRINTDEC_LOOP)
-// Copy last digit in array to gc_digit, the parameter of gc_OUTPUT_09
-@gc_index 
-M=M-1               // index--
-@gc_numArr
-D=M
-@gc_index
-A=D+M
-D=M                 // D = numArr[index]
-@gc_digit
-M=D                 // gc_digit = D
-             
-
-// Call helper function OUTPUT_09 and let it handle printing to display
-@gc_PRINTDEC_NEXT
-D=A 
-@gc_OUTPUT_09_RETURN    // set return point for function call
-M=D
-@gc_OUTPUT_09           // jump to function
-0;JMP
-
-(gc_PRINTDEC_NEXT)
-@gc_index
-D=M
-@gc_OD_PRINTDEC_LOOP
-D;JGT                   // if gc_index >= 0, then loop again
-
-
-
-
-
-//************************* "gc_OUTPUT_09" *****************************************
-// DESCRIPTION: Takes a single decimal value 0-9 and prints it to the screen. If the given value is not 0-9, then function is aborted
-// INPUT:       gc_currKey = holds decimal value 0-9
-// OUTPUT:      A decimal value 0-9 is printed to the display
-(gc_OUTPUT_09)         
-@gc_currKey                 
-D=M                     // D = currKey
-// Switch statement to find what digit 0-9 currKey is
-@gc_DRAW0
-D;JEQ                   // key = 0
-D=D-1
-@gc_DRAW1
-D;JEQ                   // key = 1
-D=D-1
-@gc_DRAW2
-D;JEQ                   // key = 2
-D=D-1
-@gc_DRAW3
-D;JEQ                   // key = 3
-D=D-1
-@gc_DRAW4
-D;JEQ                   // key = 4
-D=D-1
-@gc_DRAW5
-D;JEQ                   // key = 5
-D=D-1
-@gc_DRAW6
-D;JEQ                   // key = 6
-D=D-1
-@gc_DRAW7
-D;JEQ                   // key = 7
-D=D-1
-@gc_DRAW8
-D;JEQ                   // key = 8
-D=D-1
-@gc_DRAW9
-D;JEQ                   // key = 9
-
-@gc_OUTPUT_09_RETURN    // default case, key is not 0-9
-A=M                     // so abort function
-0;JMP
-
-// Draw corresponding digit on display
-(gc_DRAW0)                 // 0
-@gc_NEXT                // return point after ge_output function call
-D=A
-@ge_output_return
-M=D
-@ge_output_0            // draw 0 on screen
-0;JMP
-
-(gc_DRAW1)                 // 1
-@gc_NEXT                // return point after ge_output function call
-D=A
-@ge_output_return
-M=D
-@ge_output_1            // draw 1 on screen
-0;JMP
-
-(gc_DRAW2)                 // 2
-@gc_NEXT                // return point after ge_output function call
-D=A
-@ge_output_return
-M=D
-@ge_output_2            // draw 2 on screen
-0;JMP
-
-(gc_DRAW3)                 // 3
-@gc_NEXT                // return point after ge_output function call
-D=A
-@ge_output_return
-M=D
-@ge_output_3            // draw 3 on screen
-0;JMP
-
-(gc_DRAW4)                 // 4
-@gc_NEXT                // return point after ge_output function call
-D=A
-@ge_output_return
-M=D
-@ge_output_4            // draw 4 on screen
-0;JMP
-
-(gc_DRAW5)                 // 5
-@gc_NEXT                // return point after ge_output function call
-D=A
-@ge_output_return
-M=D
-@ge_output_5            // draw 5 on screen
-0;JMP
-
-(gc_DRAW6)                 // 6
-@gc_NEXT                // return point after ge_output function call
-D=A
-@ge_output_return
-M=D
-@ge_output_6            // draw 6 on screen
-0;JMP
-
-(gc_DRAW7)                 // 7
-@gc_NEXT                // return point after ge_output function call
-D=A
-@ge_output_return
-M=D
-@ge_output_7            // draw 7 on screen
-0;JMP
-
-(gc_DRAW8)                 // 8
-@gc_NEXT                // return point after ge_output function call
-D=A
-@ge_output_return
-M=D
-@ge_output_8            // draw 8 on screen
-0;JMP
-
-(gc_DRAW9)                 // 9
-@gc_NEXT                // return point after ge_output function call
-D=A
-@ge_output_return
-M=D
-@ge_output_9            // draw 9 on screen
-0;JMP
-
-// Jump back
-(gc_NEXT)
-@ge_currentColumn       // increment current column index
-M=M+1
-@gc_OUTPUT_09_RETURN    // jump back to function call
-A=M
-0;JMP
-
-
-
-
-
-//************************* "FUNCTION: gc_0BIT_CHECK" *****************************************
-// DESCRIPTION: Checks if gc_bitsEntered is 0 or not and jumps to the appropriate return address based on the result
-// INPUT:       gc_bitsEntered = number of bits currently entered
-
-// OUTPUT:      Jumps to the address stored in gc_0BIT_CHECK_TRUE_RETURN if gc_bitsEntered = 0,
-//              or jumps to the address stored in gc_0BIT_CHECK_FALSE_RETURN if gc_bitsEntered != 0
-(gc_0BIT_CHECK)
-@gc_bitsEntered     
-D=M
-@gc_0BITS_ENTERED
-D;JEQ                               // if bits entered = 0, then jump and deal with it
-
-@gc_0BIT_CHECK_FALSE_RETURN         // otherwise bits entered != 0, so jump back to address 
-A=M                                 // located in gc_0BIT_CHECK_FALSE_RETURN
-0;JMP
-
-(gc_0BITS_ENTERED)                  // bits entered = 0, so jump back to address
-@gc_0BIT_CHECK_TRUE_RETURN          // located in gc_0BIT_CHECK_TRUE_RETURN
-A=M 
-0;JMP
-
-
-
-
-
-// Mult function
-// Multiplies R100 and R101 and stores the result in R102.
-// (R100, R101, R102 refer to RAM[0], RAM[1], and RAM[2], respectively.)
-// The algorithm handles positive and negative operands.
-(ks_Mult)
-    @R102
-    M=0
-    @R100
-    D=M
-    @ks_mul_tmp_X
-    M=D
-    @R101
-    D=M
-    @ks_mul_tmp_Y
-    M=D
-    @ks_mul_tmp_Y
-    D=M
-    @ks_Mult_endLoop
-    D;JEQ
-    @ks_mul_tmp_Y
-    D=M
-    @ks_Mult_isNegativeMultiplier
-    D;JLT
-    (ks_Mult_isPositiveMultiplier)
-        @ks_mul_tmp_X
-        D=M
-        @R102
-        M=D+M
-        @ks_mul_tmp_Y
-        M=M-1
-        D=M
-        @ks_Mult_isPositiveMultiplier
-        D;JGT
-        @ks_Mult_endLoop
-        0;JMP
-    (ks_Mult_isNegativeMultiplier)
-        @ks_mul_tmp_X
-        D=-M
-        @ks_mul_tmp_X
-        M=D
-        @ks_mul_tmp_Y
-        M=-M
-        @ks_Mult_isPositiveMultiplier
-        0;JMP
-    (ks_Mult_endLoop)
-        @ks_Mult_return
-        A=M
-        0;JMP
-
-// Pow function
-// Uses Mult to compute R105 = R103 ^ R104 (R103 = base, R104 = exponent, R105 = result).
-// R108 is used as the exponent counter. R105 is initialized to 1 and repeatedly
-// multiplied by R103 using the Mult routine R104 times.
-(ks_Pow)
-    @R105
-    M=1
-    @R104
-    D=M
-    @R108
-    M=D
-    (ks_Pow_startLoop)
-        @R108
-        D=M
-        @ks_Pow_endPower
-        D;JEQ
-        @R105
-        D=M
-        @R100
-        M=D
-        @R103
-        D=M
-        @R101
-        M=D
-        @ks_Mult
-        @ks_Pow_mulRet
-        0;JMP
-    (ks_Pow_mulRet)
-        @R102
-        D=M
-        @R105
-        M=D
-        @R108
-        M=M-1
-        @ks_Pow_startLoop
-        0;JMP
-    (ks_Pow_endPower)
-        @ks_Pow_return
-        A=M
-        0;JMP
-
-// Div function
-// Performs integer (Euclidean) division: R100 / R101 = R102  (R100,R101,R102 refer to RAM[0],RAM[1],RAM[2])
-// The remainder is stored in R103.
-// Usage: Before executing, put the dividend in R100 and the divisor in R101.
+//************************* "MATH LIBRARY" *************************************
+// Description: Performs signed integer division using repeated subtraction algorithm.
+//              Handles all sign combinations for dividend and divisor.
+// Input: R100 = dividend, R101 = divisor, ks_Div_return = return address
+// Output: R102 = quotient, R103 = remainder, returns via ks_Div_return
 (ks_Div)
     @R100
     D=M
@@ -1251,922 +1012,743 @@ A=M
         A=M
         0;JMP
 
-// ge_continue_output
-// this helper function ge_continue_output outputs the character defined by
-// frontRow1 through initialized below it in the functions ge_output_X
+//************************* "MULT" *************************************
+// Description: Multiplies two signed 16-bit integers using repeated addition.
+//              Handles negative operands by converting to positive and adjusting sign.
+// Input: R100 = multiplicand, R101 = multiplier, ks_Mult_return = return address
+// Output: R102 = product (R100 * R101), returns via ks_Mult_return
+(ks_Mult)
+    @R102
+    M=0
+    @R100
+    D=M
+    @ks_mul_tmp_X
+    M=D
+    @R101
+    D=M
+    @ks_mul_tmp_Y
+    M=D
+    @ks_mul_tmp_Y
+    D=M
+    @ks_Mult_endLoop
+    D;JEQ
+    @ks_mul_tmp_Y
+    D=M
+    @ks_Mult_isNegativeMultiplier
+    D;JLT
+    (ks_Mult_isPositiveMultiplier)
+        @ks_mul_tmp_X
+        D=M
+        @R102
+        M=D+M
+        @ks_mul_tmp_Y
+        M=M-1
+        D=M
+        @ks_Mult_isPositiveMultiplier
+        D;JGT
+        @ks_Mult_endLoop
+        0;JMP
+    (ks_Mult_isNegativeMultiplier)
+        @ks_mul_tmp_X
+        D=-M
+        @ks_mul_tmp_X
+        M=D
+        @ks_mul_tmp_Y
+        M=-M
+        @ks_Mult_isPositiveMultiplier
+        0;JMP
+    (ks_Mult_endLoop)
+        @ks_Mult_return
+        A=M
+        0;JMP
+
+//************************* "POW" *************************************
+// Description: Computes base raised to the power of exponent using repeated multiplication.
+//              Calls ks_Mult repeatedly to compute the result.
+// Input: R103 = base, R104 = exponent, ks_Pow_return = return address
+// Output: R105 = result (R103 ^ R104), returns via ks_Pow_return
+(ks_Pow)
+    @R105
+    M=1
+    @R104
+    D=M
+    @R108
+    M=D
+    (ks_Pow_startLoop)
+        @R108
+        D=M
+        @ks_Pow_endPower
+        D;JEQ
+        @R105
+        D=M
+        @R100
+        M=D
+        @R103
+        D=M
+        @R101
+        M=D
+        @ks_Mult
+        @ks_Pow_mulRet
+        0;JMP
+    (ks_Pow_mulRet)
+        @R102
+        D=M
+        @R105
+        M=D
+        @R108
+        M=M-1
+        @ks_Pow_startLoop
+        0;JMP
+    (ks_Pow_endPower)
+        @ks_Pow_return
+        A=M
+        0;JMP
+
+//************************* "FONT LIBRARY" *************************************
+// Description: Low-level font rendering library that draws 6x9 pixel characters to the screen.
+//              ge_continue_output: Core routine that writes 9 font rows to screen memory.
+//              ge_output_X: Individual character routines that set font row data then call ge_continue_output.
+//              Supported characters: 0-9, space, minus (-), greater-than (>), plus (+)
+// Input: ge_currentColumn = x position, ge_fontRow1-9 = pixel data for each row, ge_output_return = return address
+// Output: Character drawn at screen position, returns via ge_output_return
 (ge_continue_output)
-//
-// ***constants***
-//
-// ge_rowOffset - number of words to move to the next row of pixels
 @32
 D=A
 @ge_rowOffset
 M=D
-// end of constants
-//
-
-//
-// ***key variables***
-//
-
-// ge_currentRow - variable holding the display memory address to be written,
-//                 which starts at the fourth row of pixels (SCREEN + 3 x rowOffset) 
-//                 offset by the current column and
-//                 increments row by row to draw the character
-//               - initialized to the beginning of the fourth row in screen memory
-//                 plus the current column
 @SCREEN
 D=A
 @ge_rowOffset
-// offset to the fourth row
 D=D+M
 D=D+M
 D=D+M
-// add the current column
 @ge_currentColumn
 D=D+M
 @ge_currentRow
 M=D
-//
-
-
-// write the first row of pixels
-// load pattern in D via A
 @ge_fontRow1
 D=M
-// write pattern at currentLine
 @ge_currentRow
 A=M
 M=D
-//
-
-// update current line
 @ge_rowOffset
 D=M
 @ge_currentRow
 M=D+M
-// load pattern in D via A
 @ge_fontRow2
 D=M
-// write pattern at currentLine
 @ge_currentRow
 A=M
 M=D
-//
-
-
-// update current line
 @ge_rowOffset
 D=M
 @ge_currentRow
 M=D+M
-// load pattern in D via A
 @ge_fontRow3
 D=M
-// write pattern at currentLine
 @ge_currentRow
 A=M
 M=D
-//
-
-
-// update current line
 @ge_rowOffset
 D=M
 @ge_currentRow
 M=D+M
-// load pattern in D via A
 @ge_fontRow4
 D=M
-// write pattern at currentLine
 @ge_currentRow
 A=M
 M=D
-//
-
-
-// update current line
 @ge_rowOffset
 D=M
 @ge_currentRow
 M=D+M
-// load pattern in D via A
 @ge_fontRow5
 D=M
-// write pattern at currentLine
 @ge_currentRow
 A=M
 M=D
-//
-
-
-// update current line
 @ge_rowOffset
 D=M
 @ge_currentRow
 M=D+M
-// load pattern in D via A
 @ge_fontRow6
 D=M
-// write pattern at currentLine
 @ge_currentRow
 A=M
 M=D
-//
-
-
-// update current line
 @ge_rowOffset
 D=M
 @ge_currentRow
 M=D+M
-// load pattern in D via A
 @ge_fontRow7
 D=M
-// write pattern at currentLine
 @ge_currentRow
 A=M
 M=D
-//
-
-
-// update current line
 @ge_rowOffset
 D=M
 @ge_currentRow
 M=D+M
-// load pattern in D via A
 @ge_fontRow8
 D=M
-// write pattern at currentLine
 @ge_currentRow
 A=M
 M=D
-//
-
-
-// update current line
 @ge_rowOffset
 D=M
 @ge_currentRow
 M=D+M
-// load pattern in D via A
 @ge_fontRow9
 D=M
-// write pattern at currentLine
 @ge_currentRow
 A=M
 M=D
-//
-
-
-
-// return from function
 @ge_output_return
 A=M
 0;JMP
-
-
-
-//
-// individual function ge_output_X definitions which are 
-// just font definitions for the helper function above
-//
-
-//ge_output_0
 (ge_output_0)
-//do Output.create(12,30,51,51,51,51,51,30,12); // 0
-
 @12
 D=A
 @ge_fontRow1
 M=D
-
 @30
 D=A
 @ge_fontRow2
 M=D
-
 @51
 D=A
 @ge_fontRow3
 M=D
-
 @51
 D=A
 @ge_fontRow4
 M=D
-
 @51
 D=A
 @ge_fontRow5
 M=D
-
 @51
 D=A
 @ge_fontRow6
 M=D
-
 @51
 D=A
 @ge_fontRow7
 M=D
-
 @30
 D=A
 @ge_fontRow8
 M=D
-
 @12
 D=A
 @ge_fontRow9
 M=D
 @ge_continue_output
 0;JMP
-// end ge_output_0
-
-//ge_output_1
 (ge_output_1)
-//do Output.create(12,14,15,12,12,12,12,12,63); // 1
-
 @12
 D=A
 @ge_fontRow1
 M=D
-
 @14
 D=A
 @ge_fontRow2
 M=D
-
 @15
 D=A
 @ge_fontRow3
 M=D
-
 @12
 D=A
 @ge_fontRow4
 M=D
-
 @12
 D=A
 @ge_fontRow5
 M=D
-
 @12
 D=A
 @ge_fontRow6
 M=D
-
 @12
 D=A
 @ge_fontRow7
 M=D
-
 @12
 D=A
 @ge_fontRow8
 M=D
-
 @63
 D=A
 @ge_fontRow9
 M=D
 @ge_continue_output
 0;JMP
-// end ge_output_1
-
-//ge_output_2
 (ge_output_2)
-//do Output.create(30,51,48,24,12,6,3,51,63);   // 2
-
 @30
 D=A
 @ge_fontRow1
 M=D
-
 @51
 D=A
 @ge_fontRow2
 M=D
-
 @48
 D=A
 @ge_fontRow3
 M=D
-
 @24
 D=A
 @ge_fontRow4
 M=D
-
 @12
 D=A
 @ge_fontRow5
 M=D
-
 @6
 D=A
 @ge_fontRow6
 M=D
-
 @3
 D=A
 @ge_fontRow7
 M=D
-
 @51
 D=A
 @ge_fontRow8
 M=D
-
 @63
 D=A
 @ge_fontRow9
 M=D
 @ge_continue_output
 0;JMP
-// end ge_output_2
-
-
-//ge_output_3
 (ge_output_3)
-//do Output.create(30,51,48,48,28,48,48,51,30); // 3
-
 @30
 D=A
 @ge_fontRow1
 M=D
-
 @51
 D=A
 @ge_fontRow2
 M=D
-
 @48
 D=A
 @ge_fontRow3
 M=D
-
 @48
 D=A
 @ge_fontRow4
 M=D
-
 @28
 D=A
 @ge_fontRow5
 M=D
-
 @48
 D=A
 @ge_fontRow6
 M=D
-
 @48
 D=A
 @ge_fontRow7
 M=D
-
 @51
 D=A
 @ge_fontRow8
 M=D
-
 @30
 D=A
 @ge_fontRow9
 M=D
 @ge_continue_output
 0;JMP
-// end ge_output_3
-
-//ge_output_4
 (ge_output_4)
-//do Output.create(16,24,28,26,25,63,24,24,60); // 4
-
 @16
 D=A
 @ge_fontRow1
 M=D
-
 @24
 D=A
 @ge_fontRow2
 M=D
-
 @28
 D=A
 @ge_fontRow3
 M=D
-
 @26
 D=A
 @ge_fontRow4
 M=D
-
 @25
 D=A
 @ge_fontRow5
 M=D
-
 @63
 D=A
 @ge_fontRow6
 M=D
-
 @24
 D=A
 @ge_fontRow7
 M=D
-
 @24
 D=A
 @ge_fontRow8
 M=D
-
 @60
 D=A
 @ge_fontRow9
 M=D
 @ge_continue_output
 0;JMP
-// end ge_output_4
-
-//ge_output_5
 (ge_output_5)
-//do Output.create(63,3,3,31,48,48,48,51,30);   // 5
-
 @63
 D=A
 @ge_fontRow1
 M=D
-
 @3
 D=A
 @ge_fontRow2
 M=D
-
 @3
 D=A
 @ge_fontRow3
 M=D
-
 @31
 D=A
 @ge_fontRow4
 M=D
-
 @48
 D=A
 @ge_fontRow5
 M=D
-
 @48
 D=A
 @ge_fontRow6
 M=D
-
 @48
 D=A
 @ge_fontRow7
 M=D
-
 @51
 D=A
 @ge_fontRow8
 M=D
-
 @30
 D=A
 @ge_fontRow9
 M=D
 @ge_continue_output
 0;JMP
-// end ge_output_5
-
-//ge_output_6
 (ge_output_6)
-//do Output.create(28,6,3,3,31,51,51,51,30);    // 6
-
 @28
 D=A
 @ge_fontRow1
 M=D
-
 @6
 D=A
 @ge_fontRow2
 M=D
-
 @3
 D=A
 @ge_fontRow3
 M=D
-
 @3
 D=A
 @ge_fontRow4
 M=D
-
 @31
 D=A
 @ge_fontRow5
 M=D
-
 @51
 D=A
 @ge_fontRow6
 M=D
-
 @51
 D=A
 @ge_fontRow7
 M=D
-
 @51
 D=A
 @ge_fontRow8
 M=D
-
 @30
 D=A
 @ge_fontRow9
 M=D
 @ge_continue_output
 0;JMP
-// end ge_output_6
-
-//ge_output_7
 (ge_output_7)
-//do Output.create(63,49,48,48,24,12,12,12,12); // 7
-
 @63
 D=A
 @ge_fontRow1
 M=D
-
 @49
 D=A
 @ge_fontRow2
 M=D
-
 @48
 D=A
 @ge_fontRow3
 M=D
-
 @48
 D=A
 @ge_fontRow4
 M=D
-
 @24
 D=A
 @ge_fontRow5
 M=D
-
 @12
 D=A
 @ge_fontRow6
 M=D
-
 @12
 D=A
 @ge_fontRow7
 M=D
-
 @12
 D=A
 @ge_fontRow8
 M=D
-
 @12
 D=A
 @ge_fontRow9
 M=D
 @ge_continue_output
 0;JMP
-// end ge_output_7
-
-
-//ge_output_8
 (ge_output_8)
-//do Output.create(30,51,51,51,30,51,51,51,30); // 8
-
 @30
 D=A
 @ge_fontRow1
 M=D
-
 @51
 D=A
 @ge_fontRow2
 M=D
-
 @51
 D=A
 @ge_fontRow3
 M=D
-
 @51
 D=A
 @ge_fontRow4
 M=D
-
 @30
 D=A
 @ge_fontRow5
 M=D
-
 @51
 D=A
 @ge_fontRow6
 M=D
-
 @51
 D=A
 @ge_fontRow7
 M=D
-
 @51
 D=A
 @ge_fontRow8
 M=D
-
 @30
 D=A
 @ge_fontRow9
 M=D
 @ge_continue_output
 0;JMP
-// end ge_output_8
-
-
-
-//ge_output_9
 (ge_output_9)
-//do Output.create(30,51,51,51,62,48,48,24,14); // 9
-
 @30
 D=A
 @ge_fontRow1
 M=D
-
 @51
 D=A
 @ge_fontRow2
 M=D
-
 @51
 D=A
 @ge_fontRow3
 M=D
-
 @51
 D=A
 @ge_fontRow4
 M=D
-
 @62
 D=A
 @ge_fontRow5
 M=D
-
 @48
 D=A
 @ge_fontRow6
 M=D
-
 @48
 D=A
 @ge_fontRow7
 M=D
-
 @25
 D=A
 @ge_fontRow8
 M=D
-
 @14
 D=A
 @ge_fontRow9
 M=D
 @ge_continue_output
 0;JMP
-// end ge_output_9
-
-
-//ge_output_s
 (ge_output_s)
-//do Output.create(0,0,0,0,0,0,0,0,0); // space
-
 @0
 D=A
 @ge_fontRow1
 M=D
-
 @0
 D=A
 @ge_fontRow2
 M=D
-
 @0
 D=A
 @ge_fontRow3
 M=D
-
 @0
 D=A
 @ge_fontRow4
 M=D
-
-@0 // temporarily change to 255 so you can see it
+@0
 D=A
 @ge_fontRow5
 M=D
-
 @0
 D=A
 @ge_fontRow6
 M=D
-
 @0
 D=A
 @ge_fontRow7
 M=D
-
 @0
 D=A
 @ge_fontRow8
 M=D
-
 @0
 D=A
 @ge_fontRow9
 M=D
 @ge_continue_output
 0;JMP
-// end ge_output_s
-
-
-
-//ge_output_-
 (ge_output_-)
-//do Output.create(0,0,0,0,0,63,0,0,0);         // -
-
 @0
 D=A
 @ge_fontRow1
 M=D
-
 @0
 D=A
 @ge_fontRow2
 M=D
-
 @0
 D=A
 @ge_fontRow3
 M=D
-
 @0
 D=A
 @ge_fontRow4
 M=D
-
 @0
 D=A
 @ge_fontRow5
 M=D
-
-@63 // use 16128 to have minus to the right of the word
-D=A
-@ge_fontRow6
-M=D
-
-@0
-D=A
-@ge_fontRow7
-M=D
-
-@0
-D=A
-@ge_fontRow8
-M=D
-
-@0
-D=A
-@ge_fontRow9
-M=D
-@ge_continue_output
-0;JMP
-// end ge_output_-
-
-
-//ge_output_g
-(ge_output_g)
-//do Output.create(0,0,3,6,12,24,12,6,3);       // >
-
-@0
-D=A
-@ge_fontRow1
-M=D
-
-@0
-D=A
-@ge_fontRow2
-M=D
-
-@3
-D=A
-@ge_fontRow3
-M=D
-
-@6
-D=A
-@ge_fontRow4
-M=D
-
-@12
-D=A
-@ge_fontRow5
-M=D
-
-@24
-D=A
-@ge_fontRow6
-M=D
-
-@12
-D=A
-@ge_fontRow7
-M=D
-
-@6
-D=A
-@ge_fontRow8
-M=D
-
-@3
-D=A
-@ge_fontRow9
-M=D
-@ge_continue_output
-0;JMP
-// end ge_output_g
-
-
-//ge_output_+
-(ge_output_+)
-//do Output.create(0,0,0,12,12,63,12,12,0);     // +
-
-@0
-D=A
-@ge_fontRow1
-M=D
-
-@0
-D=A
-@ge_fontRow2
-M=D
-
-@0
-D=A
-@ge_fontRow3
-M=D
-
-@12
-D=A
-@ge_fontRow4
-M=D
-
-@12
-D=A
-@ge_fontRow5
-M=D
-
 @63
 D=A
 @ge_fontRow6
 M=D
-
-@12
+@0
 D=A
 @ge_fontRow7
 M=D
-
-@12
+@0
 D=A
 @ge_fontRow8
 M=D
-
 @0
 D=A
 @ge_fontRow9
 M=D
 @ge_continue_output
 0;JMP
-// end ge_output_+
+(ge_output_g)
+@0
+D=A
+@ge_fontRow1
+M=D
+@0
+D=A
+@ge_fontRow2
+M=D
+@3
+D=A
+@ge_fontRow3
+M=D
+@6
+D=A
+@ge_fontRow4
+M=D
+@12
+D=A
+@ge_fontRow5
+M=D
+@24
+D=A
+@ge_fontRow6
+M=D
+@12
+D=A
+@ge_fontRow7
+M=D
+@6
+D=A
+@ge_fontRow8
+M=D
+@3
+D=A
+@ge_fontRow9
+M=D
+@ge_continue_output
+0;JMP
+(ge_output_+)
+@0
+D=A
+@ge_fontRow1
+M=D
+@0
+D=A
+@ge_fontRow2
+M=D
+@0
+D=A
+@ge_fontRow3
+M=D
+@12
+D=A
+@ge_fontRow4
+M=D
+@12
+D=A
+@ge_fontRow5
+M=D
+@63
+D=A
+@ge_fontRow6
+M=D
+@12
+D=A
+@ge_fontRow7
+M=D
+@12
+D=A
+@ge_fontRow8
+M=D
+@0
+D=A
+@ge_fontRow9
+M=D
+@ge_continue_output
+0;JMP
