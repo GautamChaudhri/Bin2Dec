@@ -23,6 +23,10 @@ M=0
 M=0              
 
 (gc_LOOP_START)
+@jm_getKeyReturn              // set return address for jm_getKey
+D=A
+@jm_getKey_return
+M=D
 @jm_getKey
 0;JMP
 
@@ -199,13 +203,13 @@ D;JEQ                   // if bitsEntered - 16 = 0 is true, then do the next ste
 (gc_PROCESS_LOOP)
 @gc_DISPLAY_DECIMAL         // set return address
 D=A 
-@ks_conv_hlt
+@ks_conv_return
 M=D
 @ks_conv16b                 // jump to processBuf function
 0;JMP
 
 (gc_DISPLAY_DECIMAL)
-@ks_conv16b                 // copy over decimal value into parameter for output decimal function
+@ks_convRet              // copy over decimal value received into parameter for output decimal function
 D=M 
 @gc_dec_digit
 M=D 
@@ -219,11 +223,19 @@ M=D
 
 // 2) Get next key
 (gc_PROCESS_LOOP_NEXT)
+@gc_PROCESS_LOOP_KEY_RETURN   // set return address for jm_getKey
+D=A
+@jm_getKey_return
+M=D
 @jm_getKey
 0;JMP
 
 
 // 3) If current key = c or enter, then clear whole buffer
+(gc_PROCESS_LOOP_KEY_RETURN)
+@gc_currKey     // store returned key value
+M=D
+
 @gc_PL_CALL_CLEARBUF    // if 0BIT_CHECK is false, then clearbuf needs to be called
 D=A                             // so prepare jump to call it on return from function call
 @gc_0BIT_CHECK_FALSE_RETURN     
@@ -385,14 +397,17 @@ M=D                     //store the label in the variable
         D=M
         @ks_convRet
         M=D
+        @24000
+        M=D
 
-        @ks_conv_hlt
+        @ks_conv_return
+        A=M
         0;JMP
 
 
 
 
-        
+
 //************************* "cc_DEL_BUFFER" *************************************
 //after backspace is pressed, and if bits entered is more than 0
 //deletes the previous bit entered from the user display and decrements
@@ -588,7 +603,8 @@ M=D                         // Stores jm_getKey_afterDebounce location into jm_k
 (jm_getKey_afterDebounce)   // After debounce, return the key value
 @jm_keyTemp                 // Loads temp. variable location into A register
 D=M                         // Loads the final key value into D register
-@jm_getKeyReturn            // Returns literal '0'/'1' or ASCII value of 'c', 'q', 'enter', 'backspace'
+@jm_getKey_return           // Returns to caller-specified return address
+A=M
 0;JMP
 
 
@@ -800,7 +816,7 @@ D;JGT                   // if gc_index >= 0, then loop again
 
 
 
-//************************* "FUNCTION: gc_OUTPUT_09" *****************************************
+//************************* "gc_OUTPUT_09" *****************************************
 // DESCRIPTION: Takes a single decimal value 0-9 and prints it to the screen. If the given value is not 0-9, then function is aborted
 // INPUT:       gc_currKey = holds decimal value 0-9
 // OUTPUT:      A decimal value 0-9 is printed to the display
